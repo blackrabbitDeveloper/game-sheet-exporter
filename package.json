@@ -1,0 +1,16 @@
+{
+  "name": "game-sheet-exporter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "엑셀 데이터시트를 타입이 보존된 JSON과 C# 코드로 내보냅니다.",
+  "scripts": {
+    "dev": "node serve.mjs",
+    "test": "node --test \"test/**/*.test.mjs\"",
+    "fixtures": "node test/fixtures/build.mjs"
+  },
+  "dependencies": {},
+  "engines": {
+    "node": ">=22"
+  }
+}

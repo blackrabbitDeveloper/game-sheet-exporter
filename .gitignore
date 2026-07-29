@@ -1,0 +1,19 @@
+# 의존성 (런타임 의존성은 없지만 devDependency나 npx 캐시가 생길 수 있음)
+node_modules/
+
+# 픽스처 생성물 — 원본은 test/fixtures/*.def.json 이고 npm run fixtures 로 재생성한다
+test/fixtures/generated/
+
+# 로컬 도구 설정
+.claude/settings.local.json
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# 로그
+*.log
+npm-debug.log*
