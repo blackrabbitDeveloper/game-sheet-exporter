@@ -1,5 +1,5 @@
 {
-  "irVersion": 1,
+  "irVersion": 2,
   "source": {
     "fileName": "basic.xlsx",
     "sheetCount": 3
@@ -13,6 +13,7 @@
   "enums": [
     {
       "name": "Grade",
+      "className": "Grade",
       "sheet": "enum.Grade",
       "members": [
         {
@@ -39,10 +40,12 @@
   "sheets": [
     {
       "name": "Monster",
+      "className": "Monster",
       "primaryKey": "id",
       "fields": [
         {
           "name": "id",
+          "identifier": "id",
           "column": 0,
           "columnLetter": "A",
           "type": {
@@ -54,6 +57,7 @@
         },
         {
           "name": "name",
+          "identifier": "name",
           "column": 1,
           "columnLetter": "B",
           "type": {
@@ -64,6 +68,7 @@
         },
         {
           "name": "hp",
+          "identifier": "hp",
           "column": 2,
           "columnLetter": "C",
           "type": {
@@ -75,6 +80,7 @@
         },
         {
           "name": "grade",
+          "identifier": "grade",
           "column": 3,
           "columnLetter": "D",
           "type": {
@@ -86,6 +92,7 @@
         },
         {
           "name": "drop_ids",
+          "identifier": "drop_ids",
           "column": 4,
           "columnLetter": "E",
           "type": {
@@ -125,10 +132,12 @@
     },
     {
       "name": "Item",
+      "className": "Item",
       "primaryKey": "id",
       "fields": [
         {
           "name": "id",
+          "identifier": "id",
           "column": 0,
           "columnLetter": "A",
           "type": {
@@ -140,6 +149,7 @@
         },
         {
           "name": "name",
+          "identifier": "name",
           "column": 1,
           "columnLetter": "B",
           "type": {
