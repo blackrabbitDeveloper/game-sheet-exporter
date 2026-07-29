@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="description" content="엑셀 데이터시트를 타입이 보존된 JSON과 C# 코드로 내보냅니다.">
+  <meta name="theme-color" content="#0d0f12">
+  <title>Game Sheet Exporter — BlackRabbit Utils</title>
+  <link rel="stylesheet" href="vendor/blackrabbit-ui/blackrabbit-ui.css">
+  <link rel="stylesheet" href="src/ui/app.css">
+</head>
+<body data-br-home="https://blackrabbitdeveloper.github.io/" data-br-navigation-target=".app-actions">
+  <a class="skip-link" href="#workspace">작업 영역으로 바로가기</a>
+
+  <header class="br-header">
+    <div class="br-shell br-header__inner">
+      <a class="br-brand" href="./" aria-label="Game Sheet Exporter 홈">
+        <span class="br-brand__mark">&gt;_</span>
+        <span>
+          <span class="br-brand__name">sheet.export</span>
+          <span class="br-brand__caption">local-first web tool</span>
+        </span>
+      </a>
+      <div class="app-actions"></div>
+    </div>
+  </header>
+
+  <main id="workspace" class="br-shell br-main">
+    <section class="intro" aria-labelledby="page-title">
+      <p class="br-eyebrow">system.ready</p>
+      <h1 id="page-title" class="br-title">Game Sheet Exporter</h1>
+      <p class="br-lead">엑셀 데이터시트를 타입이 보존된 JSON과 C# 코드로 내보냅니다.</p>
+      <span class="privacy-note"><i></i> 파일은 브라우저 안에서 처리됩니다.</span>
+    </section>
+
+    <div class="workspace-grid">
+      <section class="br-card upload-card" aria-labelledby="upload-title">
+        <div class="br-card__header">
+          <h2 id="upload-title">&gt; file.open</h2>
+          <p>지원하는 파일을 선택해 작업을 시작하세요.</p>
+        </div>
+        <div class="br-card__body">
+          <div id="dropzone" class="br-dropzone" tabindex="0" role="button" aria-controls="file-input">
+            <span class="br-dropzone__icon" aria-hidden="true">＋</span>
+            <strong>파일을 여기에 놓으세요</strong>
+            <p>또는 클릭해서 파일 선택</p>
+            <span class="file-constraints">XLSX / XLSM / CSV · 최대 25MB</span>
+          </div>
+          <input id="file-input" type="file" accept=".xlsx,.xlsm,.csv" hidden>
+
+          <div id="file-summary" class="file-summary" hidden>
+            <span class="file-badge" aria-hidden="true">FILE</span>
+            <div><strong id="file-name"></strong><span id="file-size"></span></div>
+            <button id="file-remove" class="icon-action" type="button" aria-label="선택한 파일 제거">×</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="br-card settings-card" aria-labelledby="settings-title">
+        <div class="br-card__header">
+          <h2 id="settings-title">&gt; output.configure</h2>
+          <p>결과에 적용할 옵션을 설정하세요.</p>
+        </div>
+        <form id="settings-form" class="br-card__body settings-form">
+          <label class="br-field">
+            <span class="br-label">출력 이름</span>
+            <input id="output-name" class="br-input" name="outputName" placeholder="파일을 먼저 선택하세요" disabled>
+          </label>
+          <label class="br-field">
+            <span class="br-label">처리 모드</span>
+            <select class="br-select" name="mode">
+              <option value="balanced">균형</option>
+              <option value="quality">품질 우선</option>
+              <option value="speed">속도 우선</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button id="run-button" class="br-button br-button--primary" type="submit" disabled>처리 시작</button>
+            <button id="reset-button" class="br-button" type="reset">초기화</button>
+          </div>
+        </form>
+      </section>
+    </div>
+
+    <section id="progress-panel" class="br-card status-panel" aria-live="polite" hidden>
+      <div class="status-copy"><span class="spinner" aria-hidden="true"></span><div><strong id="progress-title">처리 준비 중</strong><span id="progress-message">잠시만 기다려 주세요.</span></div></div>
+      <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
+    </section>
+
+    <section id="result-panel" class="br-card result-panel" aria-labelledby="result-title" hidden>
+      <div><p class="br-eyebrow">task.complete</p><h2 id="result-title">결과가 준비됐습니다.</h2><p id="result-message">처리된 파일을 확인하세요.</p></div>
+      <div class="result-actions"><button id="download-button" class="br-button br-button--primary" type="button">결과 저장</button><button id="restart-button" class="br-button" type="button">다른 파일</button></div>
+    </section>
+
+    <section id="error-panel" class="error-panel" role="alert" hidden>
+      <div><strong>처리할 수 없습니다.</strong><p id="error-message"></p></div>
+      <button id="error-close" class="icon-action" type="button" aria-label="오류 닫기">×</button>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="vendor/blackrabbit-ui/blackrabbit-ui.js"></script>
+  <script type="module" src="src/ui/app.js"></script>
+</body>
+</html>
