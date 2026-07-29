@@ -41,7 +41,8 @@ export function check(ir) {
               code,
               cell,
               `값이 중복되었습니다: ${format(value)}`,
-              `${sheet.name}.${field.name} 은 유일해야 합니다. 처음 나온 곳: ${first.get(key)}`,
+              // 라틴 식별자 뒤의 조사는 읽는 방식에 따라 갈리므로 붙이지 않는다.
+              `유일해야 하는 필드입니다: ${sheet.name}.${field.name} — 처음 나온 곳 ${first.get(key)}`,
             ),
           );
           continue;
