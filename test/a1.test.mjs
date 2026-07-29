@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { cellRef, columnLetter, sheetRef } from '../src/core/util/a1.js';
+import { cellRef, columnIndex, columnLetter, parseCellRef, sheetRef } from '../src/core/util/a1.js';
 
 // ── 열 문자 ──────────────────────────────────────────────────────────
 
@@ -85,6 +85,56 @@ test('시트 전체에 걸린 좌표는 시트명까지만 표기한다', () => 
   // spec.md §5.1: "시트 전체에 걸린 오류는 Monster! 까지"
   assert.equal(sheetRef('Monster'), 'Monster!');
   assert.equal(sheetRef('몬스터 정보'), '몬스터 정보!');
+});
+
+// ── 역변환 ───────────────────────────────────────────────────────────
+
+test('열 문자를 인덱스로 되돌린다', () => {
+  for (const [index, letters] of [[0, 'A'], [25, 'Z'], [26, 'AA'], [701, 'ZZ'], [702, 'AAA'], [16383, 'XFD']]) {
+    assert.equal(columnIndex(letters), index, letters);
+  }
+});
+
+test('열 문자 왕복이 어긋나지 않는다', () => {
+  for (let index = 0; index < 1000; index += 1) {
+    assert.equal(columnIndex(columnLetter(index)), index, `${index}`);
+  }
+});
+
+test('잘못된 열 문자를 거부한다', () => {
+  for (const bad of ['', 'a', 'A1', '1', 'A B', null, 3]) {
+    assert.throws(() => columnIndex(bad), /열 문자/, `${JSON.stringify(bad)} 는 거부되어야 한다`);
+  }
+});
+
+test('셀 좌표 문자열을 되돌린다', () => {
+  // S9 에서 검증 항목을 클릭해 원본 셀로 이동할 때, 그리고 진단을 위치 순으로
+  // 정렬할 때 필요하다.
+  assert.deepEqual(parseCellRef('Monster!D17'), { sheet: 'Monster', row: 17, column: 3 });
+  assert.deepEqual(parseCellRef('Item!AA4'), { sheet: 'Item', row: 4, column: 26 });
+  assert.deepEqual(parseCellRef('enum.Grade!A4'), { sheet: 'enum.Grade', row: 4, column: 0 });
+  assert.deepEqual(parseCellRef('몬스터 정보!B2'), { sheet: '몬스터 정보', row: 2, column: 1 });
+});
+
+test('시트 전체 좌표는 행과 열이 없다', () => {
+  assert.deepEqual(parseCellRef('Monster!'), { sheet: 'Monster', row: null, column: null });
+});
+
+test('셀 좌표가 아닌 문자열은 null 이다', () => {
+  // 파일 전체에 걸린 진단은 좌표가 파일명이다 (spec.md §5.1).
+  for (const notACell of ['gamedata.xlsx', '', '!A1', 'Monster!0', 'Monster!a1', 'Monster!A', 'Monster!1', null]) {
+    assert.equal(parseCellRef(notACell), null, JSON.stringify(notACell));
+  }
+});
+
+test('시트명에 느낌표가 들어가도 마지막 것을 구분자로 본다', () => {
+  assert.deepEqual(parseCellRef('Hi!!A1'), { sheet: 'Hi!', row: 1, column: 0 });
+});
+
+test('cellRef 와 parseCellRef 가 왕복한다', () => {
+  for (const [sheet, row, column] of [['Monster', 17, 3], ['몬스터 정보', 1, 0], ['enum.Grade', 4, 27]]) {
+    assert.deepEqual(parseCellRef(cellRef(sheet, row, column)), { sheet, row, column });
+  }
 });
 
 // ── 경계 ─────────────────────────────────────────────────────────────

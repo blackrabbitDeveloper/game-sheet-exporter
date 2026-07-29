@@ -35,6 +35,50 @@ export function columnLetter(index) {
 }
 
 /**
+ * 엑셀 열 문자를 0부터 세는 인덱스로 되돌린다.
+ *
+ * @param {string} letters 'A' → 0, 'AA' → 26
+ * @returns {number}
+ */
+export function columnIndex(letters) {
+  if (typeof letters !== 'string' || !/^[A-Z]+$/.test(letters)) {
+    throw new Error(`열 문자는 A~Z 로만 이뤄져야 합니다: ${describe(letters)}`);
+  }
+
+  let index = 0;
+  for (const letter of letters) {
+    index = index * LETTER_COUNT + (letter.charCodeAt(0) - CODE_A + 1);
+  }
+  return index - 1;
+}
+
+/**
+ * 'Monster!D17' 을 시트명·행·열로 되돌린다.
+ *
+ * 진단을 위치 순으로 정렬할 때와, S9 에서 검증 항목을 클릭해 원본 셀로 이동할 때
+ * 쓴다. 시트 전체 좌표('Monster!')는 행과 열이 null 이고, 파일 전체 좌표(파일명)는
+ * 셀 좌표가 아니므로 null 을 돌려준다.
+ *
+ * @param {string} text
+ * @returns {{sheet: string, row: number|null, column: number|null}|null}
+ */
+export function parseCellRef(text) {
+  if (typeof text !== 'string') return null;
+
+  // 엑셀 시트명에는 느낌표가 들어갈 수 있다. 'Hi!!A1' 은 시트 'Hi!' 의 A1 이다.
+  const separator = text.lastIndexOf('!');
+  if (separator <= 0) return null;
+
+  const sheet = text.slice(0, separator);
+  const rest = text.slice(separator + 1);
+  if (rest === '') return { sheet, row: null, column: null };
+
+  const match = /^([A-Z]+)([1-9][0-9]*)$/.exec(rest);
+  if (!match) return null;
+  return { sheet, row: Number(match[2]), column: columnIndex(match[1]) };
+}
+
+/**
  * @param {string} sheetName 원본 시트명. 변환하지 않는다
  * @param {number} rowNumber 엑셀 화면과 같이 1부터 세는 행 번호
  * @param {number} columnIndex 0부터 세는 열 인덱스

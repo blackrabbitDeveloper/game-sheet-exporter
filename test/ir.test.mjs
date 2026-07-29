@@ -11,7 +11,13 @@ import {
   isIgnoredFieldName,
   normalizeLayout,
 } from '../src/core/ir/schema.js';
-import { diagnostic, hasErrors, isError, isWarning } from '../src/core/ir/diagnostic.js';
+import {
+  diagnostic,
+  hasErrors,
+  isError,
+  isWarning,
+  sortDiagnostics,
+} from '../src/core/ir/diagnostic.js';
 
 // ── 상수 ─────────────────────────────────────────────────────────────
 
@@ -152,6 +158,68 @@ test('E 는 오류, W 는 경고다', () => {
   assert.equal(isWarning(error), false);
   assert.equal(isError(warning), false);
   assert.equal(isWarning(warning), true);
+});
+
+// ── 진단 정렬 ────────────────────────────────────────────────────────
+
+const cells = (list) => list.map((item) => item.cell);
+
+test('시트 순서를 따르고 시트 안에서는 행 → 열 순이다', () => {
+  const input = [
+    diagnostic('E006', 'Item!B5', 'b'),
+    diagnostic('E003', 'Monster!C4', 'c'),
+    diagnostic('E003', 'Monster!A4', 'a'),
+    diagnostic('E006', 'Item!A4', 'd'),
+    diagnostic('E003', 'Monster!A2', 'e'),
+  ];
+  assert.deepEqual(cells(sortDiagnostics(input, ['Monster', 'Item'])), [
+    'Monster!A2',
+    'Monster!A4',
+    'Monster!C4',
+    'Item!A4',
+    'Item!B5',
+  ]);
+});
+
+test('시트 전체 좌표가 그 시트의 셀 좌표보다 앞에 온다', () => {
+  const input = [diagnostic('E003', 'Monster!A4', 'a'), diagnostic('W102', 'Monster!', 'b')];
+  assert.deepEqual(cells(sortDiagnostics(input, ['Monster'])), ['Monster!', 'Monster!A4']);
+});
+
+test('파일 전체 좌표가 맨 앞에 온다', () => {
+  const input = [diagnostic('E003', 'Monster!A4', 'a'), diagnostic('E015', 'gamedata.xlsx', 'b')];
+  assert.deepEqual(cells(sortDiagnostics(input, ['Monster'])), ['gamedata.xlsx', 'Monster!A4']);
+});
+
+test('목록에 없는 시트는 뒤에 이름순으로 온다', () => {
+  const input = [
+    diagnostic('E003', 'Zebra!A1', 'a'),
+    diagnostic('E003', 'Monster!A1', 'b'),
+    diagnostic('E003', 'Apple!A1', 'c'),
+  ];
+  assert.deepEqual(cells(sortDiagnostics(input, ['Monster'])), ['Monster!A1', 'Apple!A1', 'Zebra!A1']);
+});
+
+test('같은 셀이면 코드 순이다', () => {
+  const input = [
+    diagnostic('W106', 'Monster!A4', 'b'),
+    diagnostic('E006', 'Monster!A4', 'a'),
+    diagnostic('E003', 'Monster!A4', 'c'),
+  ];
+  assert.deepEqual(
+    sortDiagnostics(input, ['Monster']).map((item) => item.code),
+    ['E003', 'E006', 'W106'],
+  );
+});
+
+test('정렬은 원본을 바꾸지 않고 결정적이다', () => {
+  const input = [diagnostic('E006', 'Item!B5', 'b'), diagnostic('E003', 'Monster!A4', 'a')];
+  const snapshot = structuredClone(input);
+  const first = sortDiagnostics(input, ['Monster', 'Item']);
+  const second = sortDiagnostics(input, ['Monster', 'Item']);
+
+  assert.deepEqual(input, snapshot, '원본 배열이 바뀌었다');
+  assert.deepEqual(first, second);
 });
 
 test('오류가 하나라도 있으면 내보내기를 막는다', () => {

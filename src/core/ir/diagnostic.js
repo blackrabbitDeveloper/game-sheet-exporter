@@ -8,7 +8,13 @@
 // validate/ 가 아니라 ir/ 에 두는 이유는 진단이 IR 과 함께 이동하는 데이터이기
 // 때문이다. parser/ → validate/ 라는 의존 방향을 만들지 않는다.
 
+import { parseCellRef } from '../util/a1.js';
+
 const CODE_PATTERN = /^[EW]\d{3}$/;
+
+// 좌표가 없는 자리를 나타낸다. 파일 전체·시트 전체 진단이 그 범위의 셀 진단보다
+// 앞에 오도록 -1 을 쓴다.
+const NO_POSITION = -1;
 
 /**
  * @param {string} code 'E004' | 'W105'
@@ -51,4 +57,56 @@ export function isWarning(item) {
  */
 export function hasErrors(diagnostics) {
   return diagnostics.some(isError);
+}
+
+/**
+ * 진단을 셀 위치 순으로 정렬한다. 원본 배열은 바꾸지 않는다.
+ *
+ * 파싱 단계와 검증 단계가 각자의 순서로 진단을 내므로, 합쳐서 사람에게 보여줄 때는
+ * 한 번 정렬해야 같은 셀의 오류가 리포트 앞뒤로 흩어지지 않는다.
+ *
+ * 시트 순서는 워크북 순서이고, 목록에 없는 시트는 뒤에 이름순으로 붙는다.
+ * 정렬 기준을 전부 결정적인 값으로만 두어야 골든 리포트가 흔들리지 않는다 —
+ * localeCompare 는 환경에 따라 결과가 달라지므로 쓰지 않는다.
+ *
+ * @param {Array<{code: string, cell: string}>} diagnostics
+ * @param {string[]} [sheetOrder] 워크북 시트 순서
+ * @returns {Array<object>}
+ */
+export function sortDiagnostics(diagnostics, sheetOrder = []) {
+  const order = new Map(sheetOrder.map((name, index) => [name, index]));
+
+  const unknown = [
+    ...new Set(
+      diagnostics
+        .map((item) => parseCellRef(item.cell)?.sheet)
+        .filter((name) => name !== undefined && !order.has(name)),
+    ),
+  ].sort();
+  for (const [index, name] of unknown.entries()) order.set(name, sheetOrder.length + index);
+
+  return [...diagnostics].sort((left, right) => compareKeys(sortKey(left, order), sortKey(right, order)));
+}
+
+function sortKey(item, order) {
+  const position = parseCellRef(item.cell);
+  if (position === null) {
+    // 파일 전체에 걸린 진단. 어느 시트보다도 앞이다.
+    return [NO_POSITION, NO_POSITION, NO_POSITION, item.code, item.message];
+  }
+  return [
+    order.get(position.sheet),
+    position.row ?? NO_POSITION,
+    position.column ?? NO_POSITION,
+    item.code,
+    item.message,
+  ];
+}
+
+function compareKeys(left, right) {
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] < right[index]) return -1;
+    if (left[index] > right[index]) return 1;
+  }
+  return 0;
 }
