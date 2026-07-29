@@ -395,8 +395,8 @@ namespace GameData
 {
     public sealed class GameDataTables
     {
-        public IReadOnlyList<Monster> Monsters { get; }
-        public IReadOnlyList<Item> Items { get; }
+        public IReadOnlyList<Monster> MonsterTable { get; }
+        public IReadOnlyList<Item> ItemTable { get; }
 
         public Monster GetMonster(int id);
         public bool TryGetMonster(int id, out Monster value);
@@ -412,6 +412,12 @@ StreamingAssets·테스트용 문자열 중 무엇을 쓸지는 프로젝트가 
 `src/core/`가 `ports.js`로 외부 기능을 주입받는 것과 같은 발상입니다.
 
 조회 인덱스(`GetMonster`)는 기본키(§3.4) 기준으로 생성자에서 한 번 만듭니다.
+
+프로퍼티 이름이 `Monsters`가 아니라 **`MonsterTable`** 인 이유는 복수형을 만들 수
+없기 때문입니다. `Property` → `Propertys`, `Class` → `Classs` 가 되고, 무엇보다
+한국어에는 복수형이 없어 `몬스터정보s` 가 됩니다. 시트명이 한글인 것을 §6.4가
+전제하는 이상 영어 복수형 규칙을 넣어도 절반은 어색해집니다. 규칙 하나로 예측
+가능한 편이 낫고, `GetMonster` 와 `MonsterTable` 이 짝으로 읽힙니다.
 
 **옵션**: 네임스페이스, 파일 분리 여부, 접근 제한자, 필드 대신 프로퍼티 사용,
 헤더 주석의 타임스탬프 포함 여부.
