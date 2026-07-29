@@ -6,6 +6,7 @@
 // 그 타입은 다른 시트의 헤더에 있으므로, 헤더를 전부 읽은 뒤에 값을 캐스팅한다
 // (notation.md §4.3).
 import { diagnostic } from '../ir/diagnostic.js';
+import { toClassName } from '../ir/naming.js';
 import {
   DEFAULT_ARRAY_DELIMITER,
   IR_VERSION,
@@ -71,6 +72,7 @@ export function buildIR(workbook, options = {}) {
   // ── pass 2: 데이터 행 캐스팅 ──────────────────────────────────────
   const sheets = dataSheets.map((sheet) => ({
     name: sheet.name,
+    className: toClassName(sheet.name),
     primaryKey: sheet.fields[0]?.name ?? null,
     fields: sheet.fields,
     rows: buildRows(sheet, layout, delimiter, resolveRef, diagnostics),
@@ -201,7 +203,7 @@ function buildEnum(sheet, layout, diagnostics) {
     });
   }
 
-  return { name, sheet: sheet.name, members };
+  return { name, className: toClassName(name), sheet: sheet.name, members };
 }
 
 function findEnumColumns(nameCells) {

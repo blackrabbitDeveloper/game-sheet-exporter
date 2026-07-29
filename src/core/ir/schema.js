@@ -5,9 +5,10 @@
 /**
  * 골든 파일이 IR 을 비교하므로 구조가 바뀌면 명시적으로 올린다 (spec.md §4.1).
  *
- * 1 — S2. `identifier` 와 `className` 은 아직 없다. naming.js 가 들어오는 S5 에서 2 가 된다.
+ * 1 — S2. `name` 만 있었다.
+ * 2 — S5. 필드에 `identifier`, 시트와 enum 에 `className` 이 생겼다 (§6.4).
  */
-export const IR_VERSION = 1;
+export const IR_VERSION = 2;
 
 /** spec.md §3.1 의 예시 구성. 하드코딩이 아니라 기본값이다. */
 export const DEFAULT_LAYOUT = Object.freeze({

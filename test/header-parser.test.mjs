@@ -26,12 +26,27 @@ test('헤더 세 행에서 필드 정의를 만든다', () => {
   );
   assert.deepEqual(fields[0], {
     name: 'id',
+    identifier: 'id',
     column: 0,
     columnLetter: 'A',
     type: { kind: 'scalar', name: 'int' },
     comment: '고유ID',
     cell: 'Monster!A1',
   });
+});
+
+test('원본 이름과 변환된 식별자를 함께 담는다', () => {
+  // 리포트는 사람이 시트에서 찾을 수 있게 원본을 쓰고, 출력은 변환된 식별자를
+  // 쓴다. 하나만 들고 있으면 둘 중 하나가 깨진다 (spec.md §4.1).
+  const { fields } = parseHeader('Monster', [['몬스터 이름', '2nd'], ['loc', 'int'], ['', '']]);
+
+  assert.deepEqual(
+    fields.map((field) => [field.name, field.identifier]),
+    [
+      ['몬스터 이름', '몬스터_이름'],
+      ['2nd', '_2nd'],
+    ],
+  );
 });
 
 test('필드 좌표는 필드명 셀을 가리킨다', () => {

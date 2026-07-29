@@ -4,6 +4,7 @@
 //
 // 2차원 문자열 배열만 받는다. SheetJS 도 DOM 도 모른다.
 import { diagnostic } from '../ir/diagnostic.js';
+import { toFieldIdentifier } from '../ir/naming.js';
 import { isIgnoredFieldName, normalizeLayout } from '../ir/schema.js';
 import { cellRef, columnLetter } from '../util/a1.js';
 import { parseTypeNotation } from './type-notation.js';
@@ -79,6 +80,11 @@ export function parseHeader(sheetName, rows, { layout } = {}) {
     seen.add(name);
     fields.push({
       name,
+      // 리포트는 사람이 시트에서 찾을 수 있게 name 을, 출력은 identifier 를 쓴다.
+      // 하나만 들고 있으면 둘 중 하나가 깨진다 (spec.md §4.1).
+      // 쓸 수 없는 식별자(E011)와 예약어(E007)는 검증 단계가 잡는다 — 여기서
+      // 이름을 바꾸지 않는다.
+      identifier: toFieldIdentifier(name),
       column,
       columnLetter: columnLetter(column),
       type,

@@ -64,7 +64,7 @@ test('CSV 도 IR 까지 이어진다', () => {
 test('IR 은 버전·원본·레이아웃을 갖는다', () => {
   const { ir } = buildIR(workbook({ Monster: MONSTER }, 'gamedata.xlsx'));
 
-  assert.equal(ir.irVersion, 1);
+  assert.equal(ir.irVersion, 2);
   assert.deepEqual(ir.source, { fileName: 'gamedata.xlsx', sheetCount: 1 });
   assert.deepEqual(ir.layout, { nameRow: 1, typeRow: 2, commentRow: 3, dataStartRow: 4 });
 });
@@ -96,6 +96,30 @@ test('시트 순서는 워크북 순서를 따른다', () => {
 });
 
 // ── 데이터 행 (spec.md §3.4, §4) ─────────────────────────────────────
+
+test('시트마다 클래스명을 담는다', () => {
+  const { ir } = buildIR(
+    workbook({ 'item-drop': MONSTER, '몬스터 정보': MONSTER, Monster: MONSTER }),
+  );
+  assert.deepEqual(
+    ir.sheets.map((sheet) => [sheet.name, sheet.className]),
+    [
+      ['item-drop', 'ItemDrop'],
+      ['몬스터 정보', '몬스터정보'],
+      ['Monster', 'Monster'],
+    ],
+  );
+});
+
+test('enum 도 클래스명을 담는다', () => {
+  const { ir } = buildIR(
+    workbook({ 'enum.아이템 등급': [['name'], ['string'], [''], ['Normal']] }),
+  );
+  assert.deepEqual(
+    ir.enums.map((item) => [item.name, item.className]),
+    [['아이템 등급', '아이템등급']],
+  );
+});
 
 test('첫 번째 필드가 기본키다', () => {
   const { ir } = buildIR(workbook({ Monster: MONSTER }));
@@ -177,6 +201,7 @@ test('enum 정의 시트를 읽는다', () => {
   assert.deepEqual(ir.enums, [
     {
       name: 'Grade',
+      className: 'Grade',
       sheet: 'enum.Grade',
       members: [
         { name: 'Normal', value: 0, comment: '일반', cell: 'enum.Grade!A4' },
