@@ -2,11 +2,21 @@
 //
 // 사양: docs/spec.md §5.1(리포트 형식), §5.5(두 단계가 같은 목록에 모인다)
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { diagnostic } from '../src/core/ir/diagnostic.js';
-import { formatReport } from '../src/core/validate/report.js';
+import * as XLSX from '../vendor/sheetjs/xlsx.mjs';
+import { diagnostic, isError } from '../src/core/ir/diagnostic.js';
+import { buildIR } from '../src/core/parser/build-ir.js';
+import { readWorkbook } from '../src/core/parser/workbook-reader.js';
+import { displayWidth, formatReport } from '../src/core/validate/report.js';
 import { RULES, validate } from '../src/core/validate/validator.js';
+import { buildWorkbook } from './fixtures/build.mjs';
+import { assertGolden } from './support/golden.mjs';
 import { irFrom } from './support/ir.mjs';
+
+const here = fileURLToPath(new URL('.', import.meta.url));
 
 // ── 규칙 등록 ────────────────────────────────────────────────────────
 
@@ -89,6 +99,54 @@ test('깨끗한 시트는 빈 목록을 낸다', () => {
   assert.deepEqual(validate(ir, diagnostics), []);
 });
 
+// ── broken 픽스처 (S3 성공 조건) ─────────────────────────────────────
+
+function reportFor(name) {
+  const definition = JSON.parse(readFileSync(join(here, 'fixtures', `${name}.def.json`), 'utf8'));
+  const bytes = XLSX.write(buildWorkbook(definition), { type: 'buffer', bookType: 'xlsx' });
+  const { ir, diagnostics } = buildIR(readWorkbook(bytes, { fileName: `${name}.xlsx` }));
+  return { ir, diagnostics: validate(ir, diagnostics) };
+}
+
+test('broken 픽스처가 골든 리포트와 일치한다', () => {
+  assertGolden('broken.report.txt', formatReport(reportFor('broken').diagnostics));
+});
+
+test('broken 픽스처가 파싱 단계와 검증 단계 진단을 모두 낸다', () => {
+  const codes = new Set(reportFor('broken').diagnostics.map((item) => item.code));
+
+  // 파싱 단계 (spec.md §5.5)
+  for (const code of ['E001', 'E002', 'E003', 'E005', 'E006']) {
+    assert.ok(codes.has(code), `${code} 가 빠졌다`);
+  }
+  // 검증 단계
+  for (const code of ['E009', 'E012', 'W101', 'W102', 'W103', 'W104', 'W106']) {
+    assert.ok(codes.has(code), `${code} 가 빠졌다`);
+  }
+});
+
+test('무시 시트는 리포트에 나오지 않는다', () => {
+  const report = formatReport(reportFor('broken').diagnostics);
+  assert.equal(report.includes('#메모'), false, '# 로 시작하는 시트는 통째로 무시된다');
+});
+
+test('basic 픽스처에는 오류가 없다', () => {
+  const { diagnostics } = reportFor('basic');
+
+  assert.deepEqual(
+    diagnostics.filter(isError).map((item) => `${item.code} ${item.cell}`),
+    [],
+    'basic 은 내보내기가 통과해야 하는 픽스처다',
+  );
+
+  // 경고 둘은 픽스처가 작아서 나온다 — 데이터 행이 하나뿐이라 Grade.Rare 와
+  // Grade.Unique 를 쓰는 행이 없다. 규칙이 옳게 동작한 결과이므로 그대로 고정한다.
+  assert.deepEqual(
+    diagnostics.map((item) => `${item.code} ${item.cell}`),
+    ['W101 enum.Grade!A5', 'W101 enum.Grade!A6'],
+  );
+});
+
 // ── 리포트 형식 (spec.md §5.1) ───────────────────────────────────────
 
 test('사양의 리포트 형식 그대로 낸다', () => {
@@ -123,6 +181,23 @@ test('좌표 너비가 달라도 열을 맞춘다', () => {
     'E003  Monster!A4          가',
     'W102  VeryLongSheetName!  나',
     '                          상세',
+    '',
+  ]);
+});
+
+test('한글 시트명이 섞여도 열이 맞는다', () => {
+  // 시트명에 한글이 들어오는 것은 이 도구에서 기본이다 (spec.md §6.4).
+  // 코드 유닛 수로 맞추면 리포트가 늘 어긋난다.
+  assert.equal(displayWidth('헤더깨짐!C1'), 11);
+  assert.equal(displayWidth('enum.Grade!A6'), 13);
+
+  const report = formatReport([
+    diagnostic('E001', '헤더깨짐!C1', '가'),
+    diagnostic('W101', 'enum.Grade!A6', '나'),
+  ]);
+  assert.deepEqual(report.split('\n'), [
+    'E001  헤더깨짐!C1    가',
+    'W101  enum.Grade!A6  나',
     '',
   ]);
 });

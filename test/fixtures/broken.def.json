@@ -1,0 +1,42 @@
+{
+  "Monster": [
+    ["id", "name", "hp", "grade", "drop_ids", "memo", "#임시"],
+    ["int", "loc", "int", "enum:Grade", "ref:Item.id[]", "string?", ""],
+    ["고유ID", "이름", null, "등급", "드랍", "메모", ""],
+    [1001, "MON_SLIME", 30, "Normal", "2001,2002", null, "계산용"],
+    [1002, "mon_goblin", "abc", "Legendary", "2001", null, null],
+    [1001, "MON_ORC", null, "Rare", "2002", null, null]
+  ],
+  "Item": [
+    ["id", "name"],
+    ["int", "loc"],
+    ["고유ID", "이름"],
+    [2001, "ITEM_POTION"],
+    [2002, "ITEM_HERB"]
+  ],
+  "enum.Grade": [
+    ["name", "value", "comment"],
+    ["string", "int?", "string?"],
+    ["이름", "값", "설명"],
+    ["Normal", 0, "일반"],
+    ["Rare", 10, "희귀"],
+    ["Unique", null, "유니크"]
+  ],
+  "헤더깨짐": [
+    ["id", "hp", "hp", "atk", "def"],
+    ["int", "int", "int", "integer", null],
+    ["고유ID", "체력", "체력2", "공격력", "방어력"],
+    [1, 2, 3, 4, 5]
+  ],
+  "Empty": [
+    ["id", "name"],
+    ["int", "loc"],
+    ["고유ID", "이름"]
+  ],
+  "#메모": [
+    ["이 시트는 무시된다"],
+    [null],
+    [null],
+    ["리포트에 나오면 안 된다"]
+  ]
+}
