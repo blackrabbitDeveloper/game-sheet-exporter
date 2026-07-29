@@ -3,8 +3,12 @@
 // 사양: docs/spec.md §5.2, §5.3
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import * as E007 from '../src/core/validate/rules/E007.js';
 import * as E009 from '../src/core/validate/rules/E009.js';
+import * as E011 from '../src/core/validate/rules/E011.js';
 import * as E012 from '../src/core/validate/rules/E012.js';
+import * as E015 from '../src/core/validate/rules/E015.js';
+import * as W105 from '../src/core/validate/rules/W105.js';
 import * as W101 from '../src/core/validate/rules/W101.js';
 import * as W102 from '../src/core/validate/rules/W102.js';
 import * as W103 from '../src/core/validate/rules/W103.js';
@@ -24,7 +28,7 @@ const ENUM_GRADE = [
 const found = (rule, ir) => rule.check(ir).map((item) => [item.code, item.cell]);
 
 test('모든 규칙이 코드와 이름을 밝힌다', () => {
-  for (const rule of [E009, E012, W101, W102, W103, W104, W106]) {
+  for (const rule of [E007, E009, E011, E012, E015, W101, W102, W103, W104, W105, W106]) {
     assert.match(rule.code, /^[EW]\d{3}$/);
     assert.ok(rule.title.trim().length > 0, `${rule.code} 의 이름이 비었다`);
     assert.equal(typeof rule.check, 'function', `${rule.code} 에 check 가 없다`);
@@ -208,6 +212,109 @@ test('W104 — 주석 행을 쓰지 않기로 했으면 잡지 않는다', () =>
   assert.deepEqual(W104.check(ir), []);
 });
 
+// ── E007 C# 예약어 충돌 ─────────────────────────────────────────────
+
+test('E007 — 예약어와 겹치는 필드명을 잡는다', () => {
+  const ir = cleanIr({
+    Monster: [['id', 'class', 'event'], ['int', 'string', 'string'], ['', '', ''], ['1', 'a', 'b']],
+  });
+
+  assert.deepEqual(found(E007, ir), [
+    ['E007', 'Monster!B1'],
+    ['E007', 'Monster!C1'],
+  ]);
+  assert.match(E007.check(ir)[0].detail, /@/, '@class 로 쓸 수 있다는 것을 알려준다');
+});
+
+test('E007 — 문맥 키워드는 통과한다', () => {
+  // public int value; 는 컴파일된다 (spec.md §6.4).
+  const ir = cleanIr({
+    Monster: [
+      ['id', 'value', 'var', 'record'],
+      ['int', 'int', 'string', 'string'],
+      ['', '', '', ''],
+      ['1', '2', 'a', 'b'],
+    ],
+  });
+  assert.deepEqual(E007.check(ir), []);
+});
+
+test('E007 — 대문자로 시작하면 예약어가 아니다', () => {
+  const ir = cleanIr({ Monster: [['id', 'Class'], ['int', 'string'], ['', ''], ['1', 'a']] });
+  assert.deepEqual(E007.check(ir), []);
+});
+
+// ── E011 식별자 변환 불가 ────────────────────────────────────────────
+
+test('E011 — 밑줄만 남는 필드명을 잡는다', () => {
+  const ir = cleanIr({ Monster: [['id', '!!!'], ['int', 'string'], ['', ''], ['1', 'a']] });
+
+  assert.deepEqual(found(E011, ir), [['E011', 'Monster!B1']]);
+  assert.match(E011.check(ir)[0].message, /___/);
+});
+
+test('E011 — 밑줄만 남는 시트명도 잡는다', () => {
+  const ir = cleanIr({ '---': [['id'], ['int'], [''], ['1']] });
+  assert.deepEqual(found(E011, ir), [['E011', '---!']]);
+});
+
+test('E011 — 쓸 수 있는 이름은 통과한다', () => {
+  const ir = cleanIr({
+    Monster: [['id', '몬스터 이름', '2nd'], ['int', 'string', 'int'], ['', '', ''], ['1', 'a', '2']],
+  });
+  assert.deepEqual(E011.check(ir), []);
+});
+
+// ── E015 클래스명 충돌 ───────────────────────────────────────────────
+
+test('E015 — 서로 다른 시트가 같은 클래스명이 되면 잡는다', () => {
+  const rows = [['id'], ['int'], [''], ['1']];
+  const ir = cleanIr({ 'item-drop': rows, 'Item Drop': rows });
+
+  assert.deepEqual(found(E015, ir), [['E015', 'Item Drop!']]);
+  assert.match(E015.check(ir)[0].detail, /item-drop/, '먼저 나온 시트를 알려준다');
+});
+
+test('E015 — enum 시트와도 겹치면 잡는다', () => {
+  const ir = cleanIr({
+    Grade: [['id'], ['int'], [''], ['1']],
+    'enum.Grade': [['name'], ['string'], [''], ['Normal']],
+  });
+  assert.deepEqual(found(E015, ir), [['E015', 'enum.Grade!']]);
+});
+
+test('E015 — 클래스명이 다르면 통과한다', () => {
+  const rows = [['id'], ['int'], [''], ['1']];
+  assert.deepEqual(E015.check(cleanIr({ Monster: rows, Item: rows })), []);
+});
+
+// ── W105 식별자 변환됨 ───────────────────────────────────────────────
+
+test('W105 — 변환된 필드명을 알린다', () => {
+  const ir = cleanIr({
+    Monster: [['id', '몬스터 이름'], ['int', 'string'], ['', ''], ['1', 'a']],
+  });
+
+  assert.deepEqual(found(W105, ir), [['W105', 'Monster!B1']]);
+  assert.match(W105.check(ir)[0].message, /몬스터 이름.*몬스터_이름/);
+});
+
+test('W105 — 변환된 시트명도 알린다', () => {
+  const ir = cleanIr({ 'item-drop': [['id'], ['int'], [''], ['1']] });
+  assert.deepEqual(found(W105, ir), [['W105', 'item-drop!']]);
+});
+
+test('W105 — 그대로인 이름은 알리지 않는다', () => {
+  const ir = cleanIr({ Monster: [['id', 'drop_ids'], ['int', 'int[]'], ['', ''], ['1', '2']] });
+  assert.deepEqual(W105.check(ir), []);
+});
+
+test('W105 — E011 이 잡은 이름은 다시 알리지 않는다', () => {
+  // 한 문제로 두 번 울지 않는다.
+  const ir = cleanIr({ Monster: [['id', '!!!'], ['int', 'string'], ['', ''], ['1', 'a']] });
+  assert.deepEqual(W105.check(ir), []);
+});
+
 // ── W106 로컬라이즈 키 형식 ──────────────────────────────────────────
 
 test('W106 — 키 형식이 아닌 loc 값을 알린다', () => {
@@ -250,7 +357,7 @@ test('모든 규칙의 진단이 좌표와 메시지를 갖는다', () => {
     Empty: [['id'], ['int'], ['고유ID']],
   });
 
-  const all = [E009, E012, W101, W102, W103, W104, W106].flatMap((rule) => rule.check(ir));
+  const all = [E007, E009, E011, E012, E015, W101, W102, W103, W104, W105, W106].flatMap((rule) => rule.check(ir));
   assert.ok(all.length >= 7, `규칙이 골고루 걸려야 한다: ${all.length}개`);
   for (const item of all) {
     assert.match(item.cell, /^[^!]+!([A-Z]+[1-9][0-9]*)?$/, `${item.code} 의 좌표`);
@@ -265,6 +372,6 @@ test('규칙은 IR 을 수정하지 않는다', () => {
   });
   const snapshot = structuredClone(ir);
 
-  for (const rule of [E009, E012, W101, W102, W103, W104, W106]) rule.check(ir);
+  for (const rule of [E007, E009, E011, E012, E015, W101, W102, W103, W104, W105, W106]) rule.check(ir);
   assert.deepEqual(ir, snapshot);
 });
