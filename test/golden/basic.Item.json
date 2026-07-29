@@ -1,0 +1,12 @@
+{
+  "rows": [
+    {
+      "id": 2001,
+      "name": "ITEM_POTION"
+    },
+    {
+      "id": 2002,
+      "name": "ITEM_HERB"
+    }
+  ]
+}

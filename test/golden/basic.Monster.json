@@ -1,0 +1,11 @@
+{
+  "rows": [
+    {
+      "id": 1001,
+      "name": "MON_SLIME",
+      "hp": 30,
+      "grade": "Normal",
+      "drop_ids": [2001, 2002]
+    }
+  ]
+}
