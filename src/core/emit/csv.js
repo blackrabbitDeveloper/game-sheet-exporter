@@ -20,14 +20,16 @@ export function emitCsv(ir, options = {}) {
   const arrayDelimiter = options.arrayDelimiter ?? DEFAULT_ARRAY_DELIMITER;
 
   return ir.sheets.map((sheet) => ({
-    fileName: `${sheet.name}.csv`,
+    fileName: `${sheet.className}.csv`,
     text: render(sheet, arrayDelimiter),
   }));
 }
 
 function render(sheet, arrayDelimiter) {
-  // 키 순서와 마찬가지로 열 순서의 근거는 fields 배열이다.
-  const lines = [sheet.fields.map((field) => escapeField(field.name)).join(COLUMN_SEPARATOR)];
+  // 열 순서의 근거는 fields 배열이고, 헤더에 쓰는 이름은 변환된 식별자다 (§6.2).
+  const lines = [
+    sheet.fields.map((field) => escapeField(field.identifier)).join(COLUMN_SEPARATOR),
+  ];
 
   for (const row of sheet.rows) {
     lines.push(

@@ -20,8 +20,8 @@ export function emitJson(ir, options = {}) {
   const minify = options.minify === true;
 
   return ir.sheets.map((sheet) => ({
-    // 시트명이 곧 파일명이다. className 은 naming.js(S5)에서 생긴다.
-    fileName: `${sheet.name}.json`,
+    // 파일명은 클래스명이다. 생성된 C# 클래스가 이 파일을 이름으로 찾는다 (§6.3).
+    fileName: `${sheet.className}.json`,
     text: minify ? minified(sheet) : pretty(sheet),
   }));
 }
@@ -31,7 +31,9 @@ function pretty(sheet) {
 
   const rows = sheet.rows.map((row) => {
     const entries = sheet.fields.map(
-      (field) => `${INDENT.repeat(3)}${quote(field.name)}: ${encode(row.values[field.name])}`,
+      // 키는 변환된 식별자다. §6.4 가 "identifier = JSON 키 = C# 필드명" 으로
+      // 정했으므로 여기서 원본 이름을 쓰면 C# 역직렬화가 조용히 어긋난다.
+      (field) => `${INDENT.repeat(3)}${quote(field.identifier)}: ${encode(row.values[field.name])}`,
     );
     return `${INDENT.repeat(2)}{\n${entries.join(',\n')}\n${INDENT.repeat(2)}}`;
   });
@@ -42,7 +44,7 @@ function pretty(sheet) {
 function minified(sheet) {
   const rows = sheet.rows.map((row) => {
     const entries = sheet.fields.map(
-      (field) => `${quote(field.name)}:${encode(row.values[field.name], ',')}`,
+      (field) => `${quote(field.identifier)}:${encode(row.values[field.name], ',')}`,
     );
     return `{${entries.join(',')}}`;
   });

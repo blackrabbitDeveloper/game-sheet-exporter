@@ -130,6 +130,17 @@ test('무시 시트는 리포트에 나오지 않는다', () => {
   assert.equal(report.includes('#메모'), false, '# 로 시작하는 시트는 통째로 무시된다');
 });
 
+test('naming 픽스처가 골든 리포트와 일치한다', () => {
+  assertGolden('naming.report.txt', formatReport(reportFor('naming').diagnostics));
+});
+
+test('naming 픽스처가 식별자 규칙 넷을 모두 낸다', () => {
+  const codes = new Set(reportFor('naming').diagnostics.map((item) => item.code));
+  for (const code of ['E007', 'E011', 'E015', 'W105']) {
+    assert.ok(codes.has(code), `${code} 가 빠졌다`);
+  }
+});
+
 test('basic 픽스처에는 오류가 없다', () => {
   const { diagnostics } = reportFor('basic');
 

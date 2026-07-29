@@ -56,14 +56,25 @@ test('사양의 출력 형식 그대로 낸다', () => {
   );
 });
 
-test('파일명은 시트명에서 온다', () => {
+test('파일명은 클래스명에서 온다', () => {
+  // 생성된 C# 클래스가 이 파일을 이름으로 찾는다 (§6.3).
   const files = emitJson(
     cleanIr({
       '몬스터 정보': [['id'], ['int'], ['고유ID'], ['1001']],
-      Item: [['id'], ['int'], ['고유ID'], ['2001']],
+      'item-drop': [['id'], ['int'], ['고유ID'], ['2001']],
     }),
   );
-  assert.deepEqual(files.map((file) => file.fileName), ['몬스터 정보.json', 'Item.json']);
+  assert.deepEqual(files.map((file) => file.fileName), ['몬스터정보.json', 'ItemDrop.json']);
+});
+
+test('키는 원본 이름이 아니라 변환된 식별자다', () => {
+  // §6.4 가 "identifier = JSON 키 = C# 필드명" 으로 정했다. 원본을 쓰면 C#
+  // 역직렬화가 조용히 어긋나 "런타임에 필드가 전부 기본값" 이 된다.
+  const text = emitOne({
+    Monster: [['몬스터 이름', '2nd'], ['string', 'int'], ['', ''], ['슬라임', '7']],
+  });
+  assert.match(text, /"몬스터_이름": "슬라임"/);
+  assert.match(text, /"_2nd": 7/);
 });
 
 test('enum 정의 시트는 JSON 으로 내보내지 않는다', () => {
@@ -87,16 +98,17 @@ test('키 순서는 시트 열 순서다', () => {
 });
 
 test('숫자로만 이뤄진 필드명도 열 순서를 지킨다', () => {
-  // JSON.stringify 에 객체를 그대로 넘기면 JavaScript 가 숫자꼴 키를 앞으로
-  // 당긴다. 레벨별 스탯처럼 1·2·3 열을 쓰는 시트에서 순서가 통째로 깨진다.
+  // 레벨별 스탯처럼 1·2·3 열을 쓰는 시트다. §6.4 3번이 밑줄을 앞에 붙이므로
+  // JSON 키가 숫자로 시작하는 일은 없고, JavaScript 가 숫자꼴 키를 객체 앞으로
+  // 당기는 문제도 함께 사라진다. 순서의 근거는 그래도 fields 배열이다.
   const text = emitOne({
     Stat: [['name', '1', '2'], ['string', 'int', 'int'], ['', '', ''], ['HP', '10', '20']],
   });
   assert.deepEqual(text.split('\n').slice(2, 6), [
     '    {',
     '      "name": "HP",',
-    '      "1": 10,',
-    '      "2": 20',
+    '      "_1": 10,',
+    '      "_2": 20',
   ]);
 });
 

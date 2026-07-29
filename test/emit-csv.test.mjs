@@ -38,14 +38,23 @@ test('헤더 한 줄과 데이터 행을 낸다', () => {
   );
 });
 
-test('파일명은 시트명에서 오고 enum 시트는 빠진다', () => {
+test('파일명은 클래스명에서 오고 enum 시트는 빠진다', () => {
   const files = emitCsv(
     cleanIr({
       '몬스터 정보': [['id'], ['int'], ['고유ID'], ['1001']],
       'enum.Grade': [['name'], ['string'], ['이름'], ['Normal']],
     }),
   );
-  assert.deepEqual(files.map((file) => file.fileName), ['몬스터 정보.csv']);
+  assert.deepEqual(files.map((file) => file.fileName), ['몬스터정보.csv']);
+});
+
+test('헤더는 변환된 식별자를 쓴다', () => {
+  assert.equal(
+    lines({
+      Monster: [['몬스터 이름', '2nd'], ['string', 'int'], ['', ''], ['슬라임', '7']],
+    })[0],
+    '몬스터_이름,_2nd',
+  );
 });
 
 test('데이터 행이 없어도 헤더는 낸다', () => {
@@ -53,7 +62,12 @@ test('데이터 행이 없어도 헤더는 낸다', () => {
 });
 
 test('열 순서는 시트 열 순서다', () => {
-  assert.equal(lines({ Stat: [['name', '1', '2'], ['string', 'int', 'int'], ['', '', ''], ['HP', '10', '20']] })[0], 'name,1,2');
+  assert.equal(
+    lines({
+      Stat: [['name', '1', '2'], ['string', 'int', 'int'], ['', '', ''], ['HP', '10', '20']],
+    })[0],
+    'name,_1,_2',
+  );
 });
 
 // ── 값 표현 ──────────────────────────────────────────────────────────
