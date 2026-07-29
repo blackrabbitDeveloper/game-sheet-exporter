@@ -47,6 +47,18 @@ test('basic 픽스처가 골든 IR 과 일치한다', () => {
   assertGolden('basic.ir.json', toGoldenJson(ir));
 });
 
+test('CSV 도 IR 까지 이어진다', () => {
+  // spec.md §3.5: 시트가 하나뿐인 워크북으로 취급하고 시트명은 파일명에서 온다.
+  const csv = ['id,name,hp', 'int,loc,int', '고유ID,이름,체력', '1001,MON_SLIME,30'].join('\n');
+  const { ir, diagnostics } = buildIR(readWorkbook(csv, { fileName: 'Monster.csv' }));
+
+  assert.deepEqual(diagnostics, []);
+  assert.deepEqual(sheetNames(ir), ['Monster']);
+  assert.equal(ir.sheets[0].primaryKey, 'id');
+  assert.deepEqual(ir.sheets[0].rows[0].values, { id: 1001, name: 'MON_SLIME', hp: 30 });
+  assert.equal(ir.sheets[0].rows[0].cells.hp, 'Monster!C4');
+});
+
 // ── IR 머리 정보 (spec.md §4) ────────────────────────────────────────
 
 test('IR 은 버전·원본·레이아웃을 갖는다', () => {
