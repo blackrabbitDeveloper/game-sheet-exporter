@@ -11,5 +11,13 @@
     ["고유ID", "이름"],
     [2001, "ITEM_POTION"],
     [2002, "ITEM_HERB"]
+  ],
+  "enum.Grade": [
+    ["name", "value", "comment"],
+    ["string", "int?", "string?"],
+    ["이름", "값", "설명"],
+    ["Normal", 0, "일반"],
+    ["Rare", 10, "희귀"],
+    ["Unique", null, "유니크"]
   ]
 }
