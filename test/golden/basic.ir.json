@@ -1,0 +1,178 @@
+{
+  "irVersion": 1,
+  "source": {
+    "fileName": "basic.xlsx",
+    "sheetCount": 3
+  },
+  "layout": {
+    "nameRow": 1,
+    "typeRow": 2,
+    "commentRow": 3,
+    "dataStartRow": 4
+  },
+  "enums": [
+    {
+      "name": "Grade",
+      "sheet": "enum.Grade",
+      "members": [
+        {
+          "name": "Normal",
+          "value": 0,
+          "comment": "일반",
+          "cell": "enum.Grade!A4"
+        },
+        {
+          "name": "Rare",
+          "value": 10,
+          "comment": "희귀",
+          "cell": "enum.Grade!A5"
+        },
+        {
+          "name": "Unique",
+          "value": 11,
+          "comment": "유니크",
+          "cell": "enum.Grade!A6"
+        }
+      ]
+    }
+  ],
+  "sheets": [
+    {
+      "name": "Monster",
+      "primaryKey": "id",
+      "fields": [
+        {
+          "name": "id",
+          "column": 0,
+          "columnLetter": "A",
+          "type": {
+            "kind": "scalar",
+            "name": "int"
+          },
+          "comment": "고유ID",
+          "cell": "Monster!A1"
+        },
+        {
+          "name": "name",
+          "column": 1,
+          "columnLetter": "B",
+          "type": {
+            "kind": "loc"
+          },
+          "comment": "이름",
+          "cell": "Monster!B1"
+        },
+        {
+          "name": "hp",
+          "column": 2,
+          "columnLetter": "C",
+          "type": {
+            "kind": "scalar",
+            "name": "int"
+          },
+          "comment": "체력",
+          "cell": "Monster!C1"
+        },
+        {
+          "name": "grade",
+          "column": 3,
+          "columnLetter": "D",
+          "type": {
+            "kind": "enum",
+            "name": "Grade"
+          },
+          "comment": "등급",
+          "cell": "Monster!D1"
+        },
+        {
+          "name": "drop_ids",
+          "column": 4,
+          "columnLetter": "E",
+          "type": {
+            "kind": "array",
+            "of": {
+              "kind": "ref",
+              "sheet": "Item",
+              "field": "id"
+            }
+          },
+          "comment": "드랍",
+          "cell": "Monster!E1"
+        }
+      ],
+      "rows": [
+        {
+          "row": 4,
+          "values": {
+            "id": 1001,
+            "name": "MON_SLIME",
+            "hp": 30,
+            "grade": "Normal",
+            "drop_ids": [
+              2001,
+              2002
+            ]
+          },
+          "cells": {
+            "id": "Monster!A4",
+            "name": "Monster!B4",
+            "hp": "Monster!C4",
+            "grade": "Monster!D4",
+            "drop_ids": "Monster!E4"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Item",
+      "primaryKey": "id",
+      "fields": [
+        {
+          "name": "id",
+          "column": 0,
+          "columnLetter": "A",
+          "type": {
+            "kind": "scalar",
+            "name": "int"
+          },
+          "comment": "고유ID",
+          "cell": "Item!A1"
+        },
+        {
+          "name": "name",
+          "column": 1,
+          "columnLetter": "B",
+          "type": {
+            "kind": "loc"
+          },
+          "comment": "이름",
+          "cell": "Item!B1"
+        }
+      ],
+      "rows": [
+        {
+          "row": 4,
+          "values": {
+            "id": 2001,
+            "name": "ITEM_POTION"
+          },
+          "cells": {
+            "id": "Item!A4",
+            "name": "Item!B4"
+          }
+        },
+        {
+          "row": 5,
+          "values": {
+            "id": 2002,
+            "name": "ITEM_HERB"
+          },
+          "cells": {
+            "id": "Item!A5",
+            "name": "Item!B5"
+          }
+        }
+      ]
+    }
+  ]
+}
