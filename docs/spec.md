@@ -61,7 +61,7 @@
 - 검증 규칙 E001~E015, W101~W106 (§5)
 - JSON 출력 (§6.1)
 - CSV 출력 (§6.2)
-- C# 출력 — enum, 데이터 클래스, 로더 (§6.3)
+- C# 출력 — enum, 데이터 클래스, 런타임, 집계 로더(옵션) (§6.3)
 - 시트 선택, 미리보기, 검증 패널, 셀 이동 (§7)
 - 설정 프리셋, ZIP 묶음 내보내기
 - Worker 처리로 10,000행에서 UI 미차단
@@ -394,20 +394,24 @@ namespace GameData
 }
 ```
 
-**`GameDataTables.cs`** — 로더
+**`GameDataRuntime.cs`** — 런타임 (시트를 모릅니다)
 ```csharp
 namespace GameData
 {
-    public sealed class GameDataTables
+    public interface IGameData<TKey>
     {
-        public IReadOnlyList<Monster> MonsterTable { get; }
-        public IReadOnlyList<Item> ItemTable { get; }
+        TKey Key { get; }
+    }
 
-        public Monster GetMonster(int id);
-        public bool TryGetMonster(int id, out Monster value);
+    public sealed class GameDataTable<T, TKey> where T : IGameData<TKey>
+    {
+        public IReadOnlyList<T> Rows { get; }
+
+        public T Get(TKey key);
+        public bool TryGet(TKey key, out T value);
 
         /// <param name="readJson">테이블 이름을 받아 JSON 문자열을 돌려준다.</param>
-        public static GameDataTables Load(Func<string, string> readJson);
+        public static GameDataTable<T, TKey> Load(Func<string, string> readJson);
     }
 }
 ```
@@ -416,16 +420,91 @@ namespace GameData
 StreamingAssets·테스트용 문자열 중 무엇을 쓸지는 프로젝트가 정할 일이기 때문입니다.
 `src/core/`가 `ports.js`로 외부 기능을 주입받는 것과 같은 발상입니다.
 
-조회 인덱스(`GetMonster`)는 기본키(§3.4) 기준으로 생성자에서 한 번 만듭니다.
+조회 인덱스는 기본키(§3.4) 기준으로 생성자에서 한 번 만듭니다.
+
+읽을 파일 이름은 `typeof(T).Name`으로 얻습니다. §6.4가 "클래스명 = JSON 파일명"을
+보장하므로 항상 맞고, 이름을 인자로 받거나 어트리뷰트를 붙이지 않아도 됩니다.
+
+#### 왜 런타임을 따로 두는가
+
+**이 파일은 워크북을 모릅니다.** 그래서 어떤 시트를 넣어도 바이트 단위로 같은 내용이
+나오고, 두 워크북을 차례로 내보내도 덮어쓰기 사고가 없습니다.
+
+초안은 시트 목록을 담은 `GameDataTables` 하나만 냈습니다. 그런데 §2.2가 여러 워크북
+병합을 v1에서 제외했으므로 이 도구는 한 번에 워크북 하나만 봅니다. 프로젝트의 **모든**
+테이블을 담는 클래스를 워크북 하나에서 만들면 이런 일이 생깁니다.
+
+```
+monsters.xlsx 내보내기 → GameDataTables.cs { MonsterTable, ItemTable }
+quests.xlsx  내보내기 → GameDataTables.cs { QuestTable }    ← 앞의 것이 사라진다
+```
+
+도구가 구조적으로 만들 수 없는 것을 완성된 모양으로 내보내는 셈이고, 증상은 "어제
+되던 빌드가 오늘 안 된다"로 나타납니다. 제네릭 테이블은 이 문제를 없앱니다 — 시트를
+아는 부분(데이터 클래스)과 모르는 부분(런타임)이 갈라지고, 각 파일이 자기가 아는
+범위에서 완결됩니다.
+
+#### 데이터 클래스가 인터페이스를 구현한다
+
+§6.3의 `Monster.cs`에 한 줄이 늘어납니다.
+
+```csharp
+public sealed class Monster : IGameData<int>
+{
+    public int id;
+    // ...
+
+    int IGameData<int>.Key => id;
+}
+```
+
+`Key`를 **명시적 구현**으로 내는 이유는 이름 충돌입니다. 보통 프로퍼티로 내면
+`Key`라는 열이 있는 시트에서 필드와 겹쳐 컴파일이 깨집니다. 명시적 구현은 클래스의
+공개 표면에 나타나지 않아 충돌이 구조적으로 불가능하고, 제네릭 제약을 통해서는
+그대로 호출됩니다. `E007`처럼 검증으로 막는 대신 애초에 부딪히지 않게 하는 편이
+낫습니다 — 사용자가 열 이름을 바꿔야 하는 일이 없습니다.
+
+**인터페이스이고 추상 클래스가 아닌** 이유가 셋 있습니다.
+
+| 문제 | 내용 |
+|---|---|
+| `sealed`와 충돌 | 데이터 클래스는 `sealed`다. 상속 계층을 만들면 이걸 포기해야 한다 |
+| 단일 상속을 써버림 | 프로젝트가 자기 베이스 클래스를 쓰려면 막힌다. 도구가 사용자의 상속 슬롯을 가져갈 이유가 없다 |
+| 역직렬화 | 상속 계층이 생기면 Newtonsoft가 타입 정보를 신경 써야 한다 |
+
+기본키가 배열인 시트(`List<T>`)는 `Dictionary`의 키가 될 수 없으므로 인터페이스를
+붙이지 않고 `Rows`로만 씁니다.
+
+#### `{클래스명}.cs` — 집계 (옵션, 기본 꺼짐)
+
+워크북이 하나인 프로젝트를 위한 편의 클래스입니다. 호출부에서
+`GameDataTable<Monster, int>`를 반복해 쓰지 않아도 됩니다.
+
+```csharp
+public sealed class GameDataTables
+{
+    public GameDataTable<Monster, int> MonsterTable { get; }
+    public GameDataTable<Item, int> ItemTable { get; }
+
+    public static GameDataTables Load(Func<string, string> readJson);
+}
+```
+
+**기본으로 내보내지 않습니다.** 이 클래스만이 "이 워크북이 게임 데이터 전부다"를
+전제하므로, 그 전제를 사용자가 명시하게 합니다. 여러 워크북을 쓰는 팀은 끄고
+`GameDataTable<T, TKey>`를 직접 씁니다.
+
+클래스명은 설정값입니다. 기본값 `GameDataTables`가 시트명과 겹치면 바꿔야 합니다 —
+집계 클래스는 생성 파일 중 유일하게 이름이 시트에서 나오지 않으므로 §6.4의 `E015`가
+이 충돌을 잡지 못합니다.
 
 프로퍼티 이름이 `Monsters`가 아니라 **`MonsterTable`** 인 이유는 복수형을 만들 수
 없기 때문입니다. `Property` → `Propertys`, `Class` → `Classs` 가 되고, 무엇보다
 한국어에는 복수형이 없어 `몬스터정보s` 가 됩니다. 시트명이 한글인 것을 §6.4가
-전제하는 이상 영어 복수형 규칙을 넣어도 절반은 어색해집니다. 규칙 하나로 예측
-가능한 편이 낫고, `GetMonster` 와 `MonsterTable` 이 짝으로 읽힙니다.
+전제하는 이상 영어 복수형 규칙을 넣어도 절반은 어색해집니다.
 
-**옵션**: 네임스페이스, 파일 분리 여부, 접근 제한자, 필드 대신 프로퍼티 사용,
-헤더 주석의 타임스탬프 포함 여부.
+**옵션**: 네임스페이스, 로더 생성 여부와 클래스명, 파일 분리 여부, 접근 제한자,
+필드 대신 프로퍼티 사용, 헤더 주석의 타임스탬프 포함 여부.
 
 ### 6.4 식별자 변환 — `core/ir/naming.js`
 
