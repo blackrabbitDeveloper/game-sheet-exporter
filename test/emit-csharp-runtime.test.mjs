@@ -126,3 +126,119 @@ test('출력에 현재 날짜가 섞이지 않는다', () => {
 test('골든과 일치한다', () => {
   assertGolden('GameDataRuntime.cs', emit(MONSTER).text);
 });
+
+// ── CSV 읽기 (spec.md §6.2) ──────────────────────────────────────────
+
+test('CSV 읽기는 기본으로 들어가지 않는다', () => {
+  // JSON 만 쓰는 프로젝트에 쓰지 않는 파서를 넣지 않는다.
+  const text = emit(MONSTER).text;
+
+  assert.doesNotMatch(text, /GameDataCsv/);
+  assert.doesNotMatch(text, /GameDataParse/);
+  assert.doesNotMatch(text, /ICsvReadable/);
+});
+
+const csv = (sheets = MONSTER) => emit(sheets, { csv: true }).text;
+
+test('켜면 CSV 읽기가 들어간다', () => {
+  const text = csv();
+
+  assert.match(text, /public interface ICsvReadable/);
+  assert.match(text, /void ReadCsvRow\(GameDataCsvRow row\)/);
+  assert.match(text, /public static class GameDataCsv/);
+  assert.match(text, /public static class GameDataParse/);
+  assert.match(text, /public sealed class GameDataCsvRow/);
+});
+
+test('CSV 를 켜도 워크북이 달라도 바이트가 같다', () => {
+  assert.equal(csv(MONSTER), csv(QUEST));
+});
+
+test('행 접근자 열 가지를 낸다', () => {
+  // csv-read.js 가 내는 표현식이 이것들을 부른다. 하나라도 빠지면 컴파일되지 않는다.
+  const text = csv();
+
+  for (const signature of [
+    'public T Value<T>(string column, Func<string, T> parse)',
+    'public T? ValueOrNull<T>(string column, Func<string, T> parse)',
+    'public string Text(string column)',
+    'public string TextOrNull(string column)',
+    'public List<T> ValueList<T>(string column, Func<string, T> parse, string delimiter)',
+    'public List<T> ValueListOrNull<T>(string column, Func<string, T> parse, string delimiter)',
+    'public List<T?> NullableList<T>(string column, Func<string, T> parse, string delimiter)',
+    'public List<T?> NullableListOrNull<T>(string column, Func<string, T> parse, string delimiter)',
+    'public List<string> TextList(string column, string delimiter)',
+    'public List<string> TextListOrNull(string column, string delimiter)',
+  ]) {
+    assert.ok(text.includes(signature), `없다: ${signature}`);
+  }
+});
+
+test('스칼라 파서 일곱 가지를 낸다', () => {
+  const text = csv();
+
+  for (const signature of [
+    'public static int Int(string text)',
+    'public static long Long(string text)',
+    'public static float Float(string text)',
+    'public static double Double(string text)',
+    'public static bool Bool(string text)',
+    'public static DateTime Date(string text)',
+    'public static TEnum Enum<TEnum>(string text)',
+  ]) {
+    assert.ok(text.includes(signature), `없다: ${signature}`);
+  }
+});
+
+test('숫자 파싱에 InvariantCulture 를 쓴다', () => {
+  // 한국어 Windows 는 소수점이 쉼표인 로케일이 아니지만, 유럽 로케일에서 1.5 가
+  // 15 로 읽히는 것을 막아야 한다. 결정성은 출력만의 문제가 아니다.
+  const text = csv();
+
+  assert.match(text, /CultureInfo\.InvariantCulture/);
+  assert.match(text, /^using System\.Globalization;$/m);
+});
+
+test('bool 은 시트 표기를 모두 받는다', () => {
+  // notation §3.1 — TRUE true 1 Y O ↔ FALSE false 0 N X. CSV 에는 TRUE/FALSE 가
+  // 들어가지만 사람이 손으로 고친 파일도 읽혀야 한다.
+  const text = csv();
+
+  for (const token of ['"TRUE"', '"Y"', '"O"', '"FALSE"', '"N"', '"X"']) {
+    assert.ok(text.includes(token), `${token} 을 받지 않는다`);
+  }
+});
+
+test('빈 셀 규칙을 타입별로 지킨다', () => {
+  // notation §5.2 — 필수 값이 비면 오류, nullable 은 null, T[] 는 빈 목록.
+  const text = csv();
+
+  assert.ok(text.includes('public T Value<T>('), '필수 값은 제네릭으로 받는다');
+  assert.ok(text.includes('필수 값이 비었습니다'), '빈 필수 값이 조용히 통과한다');
+  assert.ok(text.includes('return cell == null ? (T?)null : parse(cell);'), 'T? 가 null 이 안 된다');
+  assert.ok(text.includes('if (cell == null) return found;'), 'T[] 의 빈 셀이 빈 목록이 안 된다');
+  assert.ok(
+    text.includes('return Raw(column) == null ? null : ValueList(column, parse, delimiter);'),
+    'T[]? 의 빈 셀이 null 이 안 된다',
+  );
+});
+
+test('원소 인용을 풀어낸다', () => {
+  // notation §5.3 — 원소가 구분자나 큰따옴표를 담으면 원소 단위로 인용된다.
+  // CSV 에미터의 encodeElement 와 같은 규칙을 C# 에서 되돌려야 한다.
+  const text = csv();
+
+  assert.match(text, /SplitElements/);
+});
+
+test('CSV 를 켜도 JSON 경로가 남는다', () => {
+  // 두 형식을 함께 쓸 수 있어야 한다.
+  const text = csv();
+
+  assert.match(text, /GameDataJson/);
+  assert.match(text, /GameDataTable<T, TKey>/);
+});
+
+test('CSV 골든과 일치한다', () => {
+  assertGolden('GameDataRuntime.csv.cs', csv());
+});
