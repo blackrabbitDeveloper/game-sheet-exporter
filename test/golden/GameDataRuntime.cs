@@ -1,3 +1,18 @@
+// 사용법
+//
+//   Func<string, string> read = name => File.ReadAllText($"Assets/GameData/{name}.json");
+//
+//   var table = GameDataTable<Monster, int>.Load(read);
+//
+//   Monster found = table.Get(1001);
+//   Monster other;
+//   if (table.TryGet(1002, out other)) { }
+//
+//   foreach (var row in table.Rows) { }
+//
+// Monster 와 int 자리에는 생성된 데이터 클래스와 그 기본키 타입을 넣습니다.
+// 읽을 파일 이름은 클래스명과 같습니다 — Monster 클래스는 Monster 를 읽습니다.
+
 using System;
 using System.Collections.Generic;
 using Newtonsoft.Json;
