@@ -209,6 +209,20 @@ test('파일명이 IR 에 담긴다', () => {
   assert.equal(result.ir.source.fileName, '내 데이터.xlsx');
 });
 
+test('브라우저가 넘기는 바이트 형태를 모두 받는다', () => {
+  // app.js 는 File.arrayBuffer() 의 결과를 Uint8Array 로 감싸 넘긴다. Node 테스트가
+  // 쓰는 Buffer 도 뷰라 같은 분기를 타지만, 브라우저 쪽 형태를 명시해 둔다.
+  const buffer = fixtureBytes('basic');
+  const view = new Uint8Array(buffer);
+  const arrayBuffer = view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+
+  const fromView = runPipeline(view, { fileName: 'basic.xlsx' });
+  const fromArrayBuffer = runPipeline(arrayBuffer, { fileName: 'basic.xlsx' });
+
+  assert.deepEqual(fromView.outputs, fromArrayBuffer.outputs);
+  assert.equal(fromView.blocked, false);
+});
+
 test('잘못된 설정은 예외로 알린다', () => {
   assert.throws(
     () => runPipeline(fixtureBytes('basic'), { fileName: 'basic.xlsx', settings: { nameRow: '0' } }),

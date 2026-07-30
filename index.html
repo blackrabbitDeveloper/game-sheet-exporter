@@ -59,24 +59,56 @@
 
       <section class="br-card settings-card" aria-labelledby="settings-title">
         <div class="br-card__header">
-          <h2 id="settings-title">&gt; output.configure</h2>
-          <p>결과에 적용할 옵션을 설정하세요.</p>
+          <h2 id="settings-title">&gt; sheet.layout</h2>
+          <p>시트의 헤더 구성과 출력 옵션을 맞추세요.</p>
         </div>
         <form id="settings-form" class="br-card__body settings-form">
-          <label class="br-field">
-            <span class="br-label">출력 이름</span>
-            <input id="output-name" class="br-input" name="outputName" placeholder="파일을 먼저 선택하세요" disabled>
-          </label>
-          <label class="br-field">
-            <span class="br-label">처리 모드</span>
-            <select class="br-select" name="mode">
-              <option value="balanced">균형</option>
-              <option value="quality">품질 우선</option>
-              <option value="speed">속도 우선</option>
-            </select>
-          </label>
+          <fieldset class="settings-group">
+            <legend class="group-label">헤더 구성</legend>
+            <div class="row-grid">
+              <label class="br-field">
+                <span class="br-label">필드명 행</span>
+                <input class="br-input" name="nameRow" type="number" min="1" step="1" value="1" inputmode="numeric">
+              </label>
+              <label class="br-field">
+                <span class="br-label">타입 행</span>
+                <input class="br-input" name="typeRow" type="number" min="1" step="1" value="2" inputmode="numeric">
+              </label>
+              <label class="br-field">
+                <span class="br-label">주석 행</span>
+                <input class="br-input" name="commentRow" type="number" min="1" step="1" value="3" placeholder="없음" inputmode="numeric">
+              </label>
+              <label class="br-field">
+                <span class="br-label">데이터 시작 행</span>
+                <input class="br-input" name="dataStartRow" type="number" min="1" step="1" value="4" inputmode="numeric">
+              </label>
+            </div>
+            <p class="field-hint">주석 행을 비우면 주석이 없는 시트로 읽습니다.</p>
+          </fieldset>
+
+          <div class="row-grid">
+            <label class="br-field">
+              <span class="br-label">배열 구분자</span>
+              <input class="br-input br-mono" name="arrayDelimiter" value="," maxlength="4" autocomplete="off" spellcheck="false">
+            </label>
+            <label class="br-field">
+              <span class="br-label">네임스페이스</span>
+              <input class="br-input br-mono" name="namespace" value="GameData" autocomplete="off" spellcheck="false">
+            </label>
+          </div>
+
+          <fieldset class="settings-group">
+            <legend class="group-label">출력 형식</legend>
+            <div class="check-row">
+              <label class="check"><input type="checkbox" name="format" value="json" checked> JSON</label>
+              <label class="check"><input type="checkbox" name="format" value="csharp" checked> C#</label>
+              <label class="check"><input type="checkbox" name="format" value="csv"> CSV</label>
+            </div>
+            <label class="check"><input type="checkbox" name="minify"> JSON을 한 줄로 압축</label>
+          </fieldset>
+
           <div class="form-actions">
-            <button id="run-button" class="br-button br-button--primary" type="submit" disabled>처리 시작</button>
+            <button id="run-button" class="br-button br-button--primary" type="submit" disabled>검증하고 미리보기</button>
             <button id="reset-button" class="br-button" type="reset">초기화</button>
           </div>
         </form>
@@ -84,19 +116,60 @@
     </div>
 
     <section id="progress-panel" class="br-card status-panel" aria-live="polite" hidden>
-      <div class="status-copy"><span class="spinner" aria-hidden="true"></span><div><strong id="progress-title">처리 준비 중</strong><span id="progress-message">잠시만 기다려 주세요.</span></div></div>
+      <div class="status-copy">
+        <span class="spinner" aria-hidden="true"></span>
+        <div><strong id="progress-title">읽고 있습니다</strong><span id="progress-message">잠시만 기다려 주세요.</span></div>
+      </div>
       <div class="progress-track"><div id="progress-bar" class="progress-bar"></div></div>
-    </section>
-
-    <section id="result-panel" class="br-card result-panel" aria-labelledby="result-title" hidden>
-      <div><p class="br-eyebrow">task.complete</p><h2 id="result-title">결과가 준비됐습니다.</h2><p id="result-message">처리된 파일을 확인하세요.</p></div>
-      <div class="result-actions"><button id="download-button" class="br-button br-button--primary" type="button">결과 저장</button><button id="restart-button" class="br-button" type="button">다른 파일</button></div>
     </section>
 
     <section id="error-panel" class="error-panel" role="alert" hidden>
       <div><strong>처리할 수 없습니다.</strong><p id="error-message"></p></div>
       <button id="error-close" class="icon-action" type="button" aria-label="오류 닫기">×</button>
     </section>
+
+    <div id="output-panel" class="output-panel" hidden>
+      <div class="output-grid">
+        <section class="br-card sheets-card" aria-labelledby="sheets-title">
+          <div class="br-card__header">
+            <h2 id="sheets-title">&gt; sheets</h2>
+            <p id="sheets-summary">내보낼 시트를 고르세요.</p>
+          </div>
+          <div class="br-card__body">
+            <ul id="sheet-list" class="sheet-list"></ul>
+          </div>
+        </section>
+
+        <section class="br-card report-card" aria-labelledby="report-title">
+          <div class="br-card__header">
+            <h2 id="report-title">&gt; validate</h2>
+            <p id="report-summary">검증 결과입니다.</p>
+          </div>
+          <div class="br-card__body">
+            <ol id="report-list" class="report-list"></ol>
+          </div>
+        </section>
+      </div>
+
+      <section class="br-card preview-card" aria-labelledby="preview-title">
+        <div class="br-card__header preview-header">
+          <div>
+            <h2 id="preview-title">&gt; preview</h2>
+            <p>생성될 파일을 확인하세요.</p>
+          </div>
+          <div id="format-tabs" class="tab-row" role="tablist" aria-label="출력 형식"></div>
+        </div>
+        <div class="br-card__body">
+          <div id="file-tabs" class="tab-row tab-row--files" role="tablist" aria-label="파일"></div>
+          <pre id="preview-code" class="preview-code br-mono" tabindex="0" role="tabpanel" aria-label="선택한 파일의 내용"></pre>
+        </div>
+        <div class="br-card__footer preview-actions">
+          <span id="export-note" class="export-note"></span>
+          <button id="download-file" class="br-button" type="button">이 파일 저장</button>
+          <button id="download-all" class="br-button br-button--primary" type="button">전체 저장</button>
+        </div>
+      </section>
+    </div>
   </main>
 
   <div id="toast" class="toast" role="status" aria-live="polite"></div>
