@@ -397,17 +397,17 @@ test('런타임 파일도 설명이 붙는다', () => {
 
 // ── 설정 조합 검사 (spec.md §6.2) ────────────────────────────────────
 
-test('C# 만 켜면 JSON 이 없다고 알린다', () => {
-  // 생성된 C# 은 JSON 을 읽는다. JSON 이 없으면 Load 가 읽을 파일이 없다.
+test('C# 만 켜면 읽을 데이터가 없다고 알린다', () => {
   const issues = checkOutputSettings(['csharp']);
 
   assert.equal(issues.length, 1);
   assert.match(issues[0], /JSON/);
+  assert.match(issues[0], /CSV/);
 });
 
-test('CSV 와 C# 을 켜도 JSON 이 없으면 알린다', () => {
-  // CSV 는 차이 확인용이고 런타임이 읽는 형식이 아니다 (사양 §6.2).
-  assert.equal(checkOutputSettings(['csharp', 'csv']).length, 1);
+test('CSV 를 함께 켜면 조용하다', () => {
+  // CSV 리더가 생성되므로 JSON 없이도 읽을 데이터가 있다 (사양 §6.2).
+  assert.deepEqual(checkOutputSettings(['csharp', 'csv']), []);
 });
 
 test('JSON 을 함께 켜면 조용하다', () => {
@@ -437,4 +437,52 @@ test('알림은 막지 않는다', () => {
   // 판단은 진단의 E 만 한다 (사양 §5.1).
   const result = runOnWorkbook(SAMPLE_WORKBOOK);
   assert.equal(result.blocked, false);
+});
+
+// ── CSV 리더 연결 (spec.md §6.2) ─────────────────────────────────────
+
+const withFormats = (formats, extra = {}) =>
+  runOnWorkbook(SAMPLE_WORKBOOK, { settings: { formats, ...extra } });
+
+test('CSV 를 켜지 않으면 CSV 리더가 나오지 않는다', () => {
+  const csharp = withFormats(['json', 'csharp']).outputs.csharp;
+  const text = csharp.map((file) => file.text).join('\n');
+
+  assert.equal(text.includes('ICsvReadable'), false);
+  assert.equal(text.includes('GameDataCsv'), false);
+});
+
+test('CSV 를 켜면 리더가 들어간다', () => {
+  const csharp = withFormats(['json', 'csharp', 'csv']).outputs.csharp;
+  const runtime = csharp.find((file) => file.fileName === 'GameDataRuntime.cs').text;
+  const monster = csharp.find((file) => file.fileName === 'Monster.cs').text;
+
+  assert.match(runtime, /public static class GameDataCsv/);
+  assert.match(monster, /void ICsvReadable\.ReadCsvRow\(GameDataCsvRow row\)/);
+  assert.match(monster, /id = row\.Value\("id", GameDataParse\.Int\);/);
+});
+
+test('C# 을 꺼도 출력은 만들어 둔다', () => {
+  // 화면이 탭을 바꿀 때마다 다시 실행하지 않아도 되고, 켜기 전에 무엇이 나올지
+  // 볼 수 있어야 한다. 거르는 일은 UI 가 한다.
+  const outputs = withFormats(['csv']).outputs;
+
+  assert.ok(outputs.csharp.length > 0);
+  // CSV 를 켰으므로 리더는 들어간다.
+  assert.match(outputs.csharp.map((file) => file.text).join('\n'), /ICsvReadable/);
+});
+
+test('배열 구분자 설정이 CSV 리더에 반영된다', () => {
+  const csharp = withFormats(['json', 'csharp', 'csv'], { arrayDelimiter: ';' }).outputs.csharp;
+  const monster = csharp.find((file) => file.fileName === 'Monster.cs').text;
+
+  assert.match(monster, /GameDataParse\.Int, ";"\);/);
+});
+
+test('형식을 지정하지 않으면 C# 이 나오고 CSV 리더는 없다', () => {
+  // formats 를 안 넘기는 기존 호출을 깨지 않는다.
+  const outputs = runOnWorkbook(SAMPLE_WORKBOOK).outputs;
+
+  assert.ok(outputs.csharp.length > 0);
+  assert.equal(outputs.csharp.map((file) => file.text).join('\n').includes('ICsvReadable'), false);
 });

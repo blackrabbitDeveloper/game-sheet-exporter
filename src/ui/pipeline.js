@@ -57,6 +57,9 @@ export function normalizeSettings(raw = {}) {
     loaderClassName: isBlank(raw.loaderClassName)
       ? DEFAULT_SETTINGS.loaderClassName
       : String(raw.loaderClassName).trim(),
+    // 켠 출력 형식. 안 넘기면 예전처럼 전부 낸다 — 형식 고르기는 UI 의 몫이고
+    // 파이프라인을 직접 부르는 테스트가 매번 지정해야 하는 것은 아니다.
+    formats: Array.isArray(raw.formats) ? [...raw.formats] : null,
   };
 }
 
@@ -108,19 +111,36 @@ function run(workbook, resolved) {
       csv: emitCsv(ir, { arrayDelimiter: resolved.arrayDelimiter }),
       // 순서를 고정한다: 런타임 → enum → 클래스 → 집계. 미리보기 목록이 이 순서다.
       // 런타임이 먼저인 이유는 나머지가 그것에 의존하기 때문이다.
-      csharp: [
-        ...emitCSharpRuntime(ir, { namespace: resolved.namespace }),
-        ...emitCSharpEnums(ir, { namespace: resolved.namespace }),
-        ...emitCSharpClasses(ir, { namespace: resolved.namespace }),
-        ...(resolved.loader
-          ? emitCSharpLoader(ir, {
-              namespace: resolved.namespace,
-              loaderClassName: resolved.loaderClassName,
-            })
-          : []),
-      ],
+      csharp: emitCSharp(ir, resolved),
     },
   };
+}
+
+/**
+ * C# 출력 묶음.
+ *
+ * CSV 를 함께 내보낼 때만 CSV 리더가 들어간다 — JSON 만 쓰는 프로젝트에 쓰지 않는
+ * 파서를 넣지 않는다. C# 자체를 끄면 아무것도 내지 않는다.
+ */
+function emitCSharp(ir, resolved) {
+  // 출력은 셋 다 만든다. 화면이 탭을 바꿀 때마다 다시 실행하지 않아도 되고, 켜기
+  // 전에 무엇이 나올지 볼 수 있어야 한다. 거르는 일은 UI 가 한다.
+  //
+  // CSV 리더만 형식 선택을 따른다 — 집계 로더와 같은 이유로 옵트인이다.
+  const csv = resolved.formats !== null && resolved.formats.includes('csv');
+  const shared = { namespace: resolved.namespace, csv, arrayDelimiter: resolved.arrayDelimiter };
+
+  return [
+    ...emitCSharpRuntime(ir, shared),
+    ...emitCSharpEnums(ir, { namespace: resolved.namespace }),
+    ...emitCSharpClasses(ir, shared),
+    ...(resolved.loader
+      ? emitCSharpLoader(ir, {
+          namespace: resolved.namespace,
+          loaderClassName: resolved.loaderClassName,
+        })
+      : []),
+  ];
 }
 
 /**
@@ -138,11 +158,11 @@ export function checkOutputSettings(formats, settings = {}) {
   const issues = [];
   const has = (format) => formats.includes(format);
 
-  // 생성된 C# 은 JSON 을 읽는다. CSV 는 차이 확인과 다른 도구 연동용이고 런타임이
-  // 읽는 형식이 아니다 (사양 §6.2).
-  if (has('csharp') && !has('json')) {
+  // 생성된 C# 은 JSON 이나 CSV 를 읽는다. 둘 다 없으면 읽을 데이터가 없다.
+  // CSV 리더는 CSV 를 켰을 때만 생성되므로, 여기서 둘 다 확인해야 한다.
+  if (has('csharp') && !has('json') && !has('csv')) {
     issues.push(
-      'C# 은 JSON 을 읽습니다. JSON 을 함께 내보내지 않으면 Load 가 읽을 파일이 없습니다.',
+      'C# 이 읽을 데이터가 없습니다. JSON 이나 CSV 를 함께 내보내십시오.',
     );
   }
 

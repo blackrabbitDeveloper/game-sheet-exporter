@@ -116,6 +116,8 @@ function readSettings() {
     minify: data.get('minify') === 'on',
     loader: data.get('loader') === 'on',
     loaderClassName: data.get('loaderClassName'),
+    // CSV 를 켰는지 C# 에미터가 알아야 한다 — 켰을 때만 CSV 리더가 들어간다.
+    formats: selectedFormats(),
   };
 }
 

@@ -288,3 +288,77 @@ test('인터페이스를 붙여도 필드 순서는 시트 열 순서다', () =>
   assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
   assert.ok(positions.every((position) => position > 0));
 });
+
+// ── ICsvReadable 구현 (spec.md §6.2) ─────────────────────────────────
+
+const MONSTER_SHEETS = {
+  Monster: [
+    ['id', 'name', 'hp', 'grade', 'drop_ids', 'memo'],
+    ['int', 'loc', 'int?', 'enum:Grade', 'int[]', 'string?'],
+    ['고유ID', '이름', '체력', '등급', '드랍', '비고'],
+    ['1001', 'MON_SLIME', '30', 'Normal', '1,2', 'x'],
+  ],
+  'enum.Grade': [['name', 'value'], ['string', 'int?'], ['', ''], ['Normal', '0']],
+};
+
+test('CSV 읽기는 기본으로 들어가지 않는다', () => {
+  const text = classText(MONSTER_SHEETS);
+
+  assert.doesNotMatch(text, /ICsvReadable/);
+  assert.doesNotMatch(text, /ReadCsvRow/);
+});
+
+test('켜면 ICsvReadable 을 명시적으로 구현한다', () => {
+  const text = classText(MONSTER_SHEETS, { csv: true });
+
+  assert.match(text, /public sealed class Monster : IGameData<int>, ICsvReadable/);
+  assert.match(text, /void ICsvReadable\.ReadCsvRow\(GameDataCsvRow row\)/);
+});
+
+test('필드마다 타입에 맞는 읽기 표현식을 낸다', () => {
+  const text = classText(MONSTER_SHEETS, { csv: true });
+
+  assert.match(text, /id = row\.Value\("id", GameDataParse\.Int\);/);
+  assert.match(text, /name = row\.Text\("name"\);/);
+  assert.match(text, /hp = row\.ValueOrNull\("hp", GameDataParse\.Int\);/);
+  assert.match(text, /grade = row\.Value\("grade", GameDataParse\.Enum<Grade>\);/);
+  assert.match(text, /drop_ids = row\.ValueList\("drop_ids", GameDataParse\.Int, ","\);/);
+  assert.match(text, /memo = row\.TextOrNull\("memo"\);/);
+});
+
+test('배열 구분자 설정이 생성 코드에 박힌다', () => {
+  // 파싱과 생성이 같은 구분자를 봐야 한다. 생성된 코드는 자기가 내보낸 CSV 를 읽는다.
+  const ir = cleanIr(
+    { Monster: [['id', 'a'], ['int', 'int[]'], ['', ''], ['1', '1;2']] },
+    { arrayDelimiter: ';' },
+  );
+  const text = emitCSharpClasses(ir, { csv: true, arrayDelimiter: ';' })[0].text;
+
+  assert.match(text, /row\.ValueList\("a", GameDataParse\.Int, ";"\);/);
+});
+
+test('기본키가 없어도 CSV 는 읽는다', () => {
+  // IGameData 는 못 붙이지만 ICsvReadable 은 기본키와 무관하다.
+  const text = classText(
+    { Loot: [['ids', 'hp'], ['int[]', 'int'], ['', ''], ['1,2', '30']] },
+    { csv: true },
+  );
+
+  assert.match(text, /public sealed class Loot : ICsvReadable/);
+  assert.doesNotMatch(text, /IGameData/);
+});
+
+test('읽기 순서는 시트 열 순서다', () => {
+  const text = classText(MONSTER_SHEETS, { csv: true });
+  const positions = ['id = row', 'name = row', 'hp = row', 'grade = row', 'drop_ids = row'].map(
+    (needle) => text.indexOf(needle),
+  );
+
+  assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
+  assert.ok(positions.every((position) => position > 0));
+});
+
+test('CSV 를 켜도 Key 구현은 남는다', () => {
+  const text = classText(MONSTER_SHEETS, { csv: true });
+  assert.match(text, /int IGameData<int>\.Key => id;/);
+});
