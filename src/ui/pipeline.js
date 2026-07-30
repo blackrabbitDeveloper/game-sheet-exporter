@@ -63,9 +63,27 @@ export function normalizeSettings(raw = {}) {
  * @returns {{ir: object, diagnostics: Array<object>, blocked: boolean, outputs: object}}
  */
 export function runPipeline(bytes, { fileName, settings } = {}) {
+  // 설정을 먼저 본다. 잘못된 설정으로 파일을 읽어봤자 버린다.
   const resolved = normalizeSettings(settings);
+  return run(readWorkbook(bytes, { fileName }), resolved);
+}
 
-  const workbook = readWorkbook(bytes, { fileName });
+/**
+ * 이미 2차원 문자열 배열로 펴진 워크북을 처리한다.
+ *
+ * 예시 데이터가 이 입구로 들어온다 (sample.js). xlsx 를 거치지 않으므로 UI 가
+ * SheetJS 를 알 필요가 없고, 예시를 base64 덩어리로 소스에 박을 필요도 없다.
+ *
+ * @param {{fileName: string, sheets: Array<{name: string, rows: string[][]}>}} workbook
+ * @param {{settings?: Record<string, unknown>}} [options] 폼에서 온 그대로의 설정
+ * @returns {{ir: object, diagnostics: Array<object>, blocked: boolean, outputs: object}}
+ */
+export function runOnWorkbook(workbook, { settings } = {}) {
+  return run(workbook, normalizeSettings(settings));
+}
+
+/** 정규화가 끝난 설정으로 실제 작업을 한다. */
+function run(workbook, resolved) {
   const { ir, diagnostics: parseDiagnostics } = buildIR(workbook, {
     layout: resolved.layout,
     arrayDelimiter: resolved.arrayDelimiter,
@@ -88,6 +106,64 @@ export function runPipeline(bytes, { fileName, settings } = {}) {
       ],
     },
   };
+}
+
+/**
+ * 출력 파일마다 "이게 무엇인가" 와 크기를 붙인다.
+ *
+ * 파일명만 보여주면 Grade.cs 가 enum 인지 클래스인지, GameDataTables.cs 가 무엇인지
+ * 알 수 없다. 순서는 outputs 의 순서를 그대로 지킨다 (사양 §8).
+ *
+ * @param {object} ir
+ * @param {Record<string, Array<{fileName: string, text: string}>>} outputs
+ * @returns {Array<{format: string, fileName: string, description: string, bytes: number}>}
+ */
+export function describeOutputs(ir, outputs) {
+  const sheets = new Map(ir.sheets.map((sheet) => [sheet.className, sheet]));
+  const enums = new Map(ir.enums.map((item) => [item.className, item]));
+
+  const described = [];
+  for (const format of Object.keys(outputs)) {
+    for (const file of outputs[format]) {
+      described.push({
+        format,
+        fileName: file.fileName,
+        description: describeFile(file.fileName, sheets, enums, ir),
+        bytes: byteLength(file.text),
+      });
+    }
+  }
+  return described;
+}
+
+function describeFile(fileName, sheets, enums, ir) {
+  const extension = fileName.slice(fileName.lastIndexOf('.') + 1);
+  const base = fileName.slice(0, fileName.lastIndexOf('.'));
+
+  const sheet = sheets.get(base);
+  if (sheet !== undefined) {
+    // 리포트와 같은 이유로 원본 시트명을 쓴다. 사람이 시트에서 찾을 이름이 그쪽이다.
+    if (extension === 'cs') {
+      return `${sheet.name} 데이터 클래스 · 필드 ${sheet.fields.length}개`;
+    }
+    return `${sheet.name} 시트 · ${sheet.rows.length}행`;
+  }
+
+  const definition = enums.get(base);
+  if (definition !== undefined) {
+    return `enum ${definition.name} · 멤버 ${definition.members.length}개`;
+  }
+
+  return `로더 · 테이블 ${ir.sheets.length}개`;
+}
+
+/**
+ * UTF-8 바이트 수.
+ *
+ * 문자 수를 쓰면 한글 주석이 든 파일의 크기가 실제의 3분의 1로 보인다.
+ */
+function byteLength(text) {
+  return new TextEncoder().encode(text).length;
 }
 
 function isBlank(value) {

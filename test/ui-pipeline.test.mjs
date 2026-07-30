@@ -12,7 +12,14 @@ import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import * as XLSX from '../vendor/sheetjs/xlsx.mjs';
 import { isError } from '../src/core/ir/diagnostic.js';
-import { DEFAULT_SETTINGS, normalizeSettings, runPipeline } from '../src/ui/pipeline.js';
+import {
+  DEFAULT_SETTINGS,
+  describeOutputs,
+  normalizeSettings,
+  runOnWorkbook,
+  runPipeline,
+} from '../src/ui/pipeline.js';
+import { SAMPLE_WORKBOOK } from '../src/ui/sample.js';
 import { buildWorkbook } from './fixtures/build.mjs';
 
 const here = fileURLToPath(new URL('.', import.meta.url));
@@ -228,4 +235,88 @@ test('잘못된 설정은 예외로 알린다', () => {
     () => runPipeline(fixtureBytes('basic'), { fileName: 'basic.xlsx', settings: { nameRow: '0' } }),
     /행/,
   );
+});
+
+// ── 예시 데이터 ──────────────────────────────────────────────────────
+
+test('예시는 readWorkbook 이 내는 것과 같은 모양이다', () => {
+  // xlsx 를 거치지 않고 파이프라인에 바로 넣는다. 그래서 UI 가 SheetJS 를 알 필요도,
+  // base64 덩어리를 소스에 박을 필요도 없다.
+  assert.equal(typeof SAMPLE_WORKBOOK.fileName, 'string');
+  assert.ok(Array.isArray(SAMPLE_WORKBOOK.sheets));
+
+  for (const sheet of SAMPLE_WORKBOOK.sheets) {
+    assert.equal(typeof sheet.name, 'string');
+    for (const row of sheet.rows) {
+      for (const cell of row) {
+        // 엑셀에서 읽은 값은 전부 문자열이다 (notation §5.1). 예시가 숫자를 담으면
+        // 파서가 실제로 받는 것과 다른 것을 테스트하게 된다.
+        assert.equal(typeof cell, 'string', `${sheet.name} 의 ${cell}`);
+      }
+    }
+  }
+});
+
+test('예시는 진단을 하나도 내지 않는다', () => {
+  // 첫 화면에서 보는 것이 올바른 시트여야 한다. 경고가 뜨면 규약을 잘못 배운다.
+  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+
+  assert.deepEqual(
+    result.diagnostics.map((item) => `${item.code} ${item.cell} ${item.message}`),
+    [],
+  );
+  assert.equal(result.blocked, false);
+});
+
+test('예시가 표기법을 두루 보여준다', () => {
+  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+  const types = result.ir.sheets.flatMap((sheet) => sheet.fields.map((field) => field.type.kind));
+
+  for (const kind of ['scalar', 'loc', 'enum', 'array', 'nullable']) {
+    assert.ok(types.includes(kind), `${kind} 을 보여주지 않는다`);
+  }
+  assert.ok(result.ir.enums.length > 0, 'enum 정의 시트가 없다');
+});
+
+// ── 출력 파일 설명 ───────────────────────────────────────────────────
+
+test('출력 파일마다 무엇인지와 크기를 붙인다', () => {
+  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+  const described = describeOutputs(result.ir, result.outputs);
+
+  const monsterJson = described.find((file) => file.fileName === 'Monster.json');
+  assert.equal(monsterJson.format, 'json');
+  assert.match(monsterJson.description, /Monster/);
+  assert.match(monsterJson.description, /행/);
+  assert.ok(monsterJson.bytes > 0);
+});
+
+test('데이터 클래스 · enum · 로더를 구분해 설명한다', () => {
+  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+  const described = describeOutputs(result.ir, result.outputs);
+  const find = (name) => described.find((file) => file.fileName === name).description;
+
+  assert.match(find('Monster.cs'), /클래스/);
+  assert.match(find('Grade.cs'), /enum/);
+  assert.match(find('GameDataTables.cs'), /로더/);
+});
+
+test('크기는 UTF-8 바이트 수다', () => {
+  // 한글 주석이 XML 문서 주석으로 들어가므로 문자 수와 바이트 수가 다르다.
+  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+  const described = describeOutputs(result.ir, result.outputs);
+  const file = described.find((item) => item.fileName === 'Monster.cs');
+  const text = result.outputs.csharp.find((item) => item.fileName === 'Monster.cs').text;
+
+  assert.equal(file.bytes, new TextEncoder().encode(text).length);
+  assert.ok(file.bytes > text.length, '한글이 들어 있으면 바이트가 더 많다');
+});
+
+test('설명 목록의 순서가 출력 순서와 같다', () => {
+  // 사양 §8 — 화면에 보이는 순서도 흔들리지 않아야 한다.
+  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+  const described = describeOutputs(result.ir, result.outputs);
+
+  const jsonNames = described.filter((file) => file.format === 'json').map((file) => file.fileName);
+  assert.deepEqual(jsonNames, result.outputs.json.map((file) => file.fileName));
 });

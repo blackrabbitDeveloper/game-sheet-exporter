@@ -34,6 +34,52 @@
       <span class="privacy-note"><i></i> 파일은 브라우저 안에서 처리됩니다.</span>
     </section>
 
+    <details id="guide" class="guide" open>
+      <summary class="guide-summary">
+        <span class="guide-summary__title">시트를 어떻게 만드나요?</span>
+        <span class="guide-summary__hint">시트 구조 · 타입 표기 · 규칙</span>
+      </summary>
+
+      <div class="guide-body">
+        <div class="guide-block">
+          <h3 class="guide-heading">시트 구조</h3>
+          <p class="guide-text">첫 세 행이 스키마입니다. 행 번호는 설정에서 바꿀 수 있고, 주석 행은 없어도 됩니다.</p>
+          <div class="guide-table-wrap">
+            <table id="guide-table" class="guide-table"></table>
+          </div>
+        </div>
+
+        <div class="guide-block">
+          <h3 class="guide-heading">타입 표기</h3>
+          <dl class="notation-list">
+            <dt>int long float double</dt><dd>숫자. 범위를 넘으면 오류</dd>
+            <dt>bool</dt><dd>TRUE true 1 Y O ↔ FALSE false 0 N X</dd>
+            <dt>string</dt><dd>문자열. 앞뒤 공백은 제거</dd>
+            <dt>datetime</dt><dd>엑셀 날짜 셀 또는 2026-07-30</dd>
+            <dt>loc</dt><dd>로컬라이즈 키. 셀에는 번역문이 아니라 키만</dd>
+            <dt>enum:Grade</dt><dd>enum.Grade 시트에 정의된 멤버 이름</dd>
+            <dt>ref:Item.id</dt><dd>Item 시트 id 열에 그 값이 있어야 함</dd>
+            <dt>int?</dt><dd>빈 셀 허용</dd>
+            <dt>int[]</dt><dd>배열. 셀 안에서 2001,2002 처럼 구분</dd>
+          </dl>
+          <p class="guide-text"><code class="br-mono">int[]?</code> 는 배열 전체가 없을 수 있고 <code class="br-mono">int?[]</code> 는 원소가 없을 수 있습니다. 순서를 뒤집으면 다른 타입입니다.</p>
+          <p class="guide-text">이름에 공백이 있으면 인용합니다 — <code class="br-mono">ref:'몬스터 정보'.'고유 ID'</code></p>
+        </div>
+
+        <div class="guide-block">
+          <h3 class="guide-heading">규칙</h3>
+          <ul class="guide-rules">
+            <li><strong>첫 번째 열이 기본키</strong>입니다. 값이 유일하고 비어 있지 않아야 합니다.</li>
+            <li>시트명이 <code class="br-mono">enum.</code> 으로 시작하면 enum 정의 시트입니다.</li>
+            <li>시트명이 <code class="br-mono">#</code> 나 <code class="br-mono">_</code> 로 시작하면 통째로 무시합니다. 필드명이 <code class="br-mono">#</code> 로 시작하면 그 열을 무시합니다.</li>
+            <li>빈 셀에 기본값을 채우지 않습니다. 비워도 되는 열에는 <code class="br-mono">?</code> 를 붙이십시오.</li>
+            <li>대소문자를 구분합니다. <code class="br-mono">Int</code> 는 오류입니다.</li>
+            <li>한글 시트명·필드명을 그대로 씁니다. C# 식별자로 변환된 이름을 함께 보여드립니다.</li>
+          </ul>
+        </div>
+      </div>
+    </details>
+
     <div class="workspace-grid">
       <section class="br-card upload-card" aria-labelledby="upload-title">
         <div class="br-card__header">
@@ -53,6 +99,11 @@
             <span class="file-badge" aria-hidden="true">FILE</span>
             <div><strong id="file-name"></strong><span id="file-size"></span></div>
             <button id="file-remove" class="icon-action" type="button" aria-label="선택한 파일 제거">×</button>
+          </div>
+
+          <div class="sample-row">
+            <span>시트가 없으면 예시로 먼저 보세요.</span>
+            <button id="sample-button" class="br-button" type="button">예시로 시작</button>
           </div>
         </div>
       </section>
@@ -159,8 +210,8 @@
           </div>
           <div id="format-tabs" class="tab-row" role="tablist" aria-label="출력 형식"></div>
         </div>
-        <div class="br-card__body">
-          <div id="file-tabs" class="tab-row tab-row--files" role="tablist" aria-label="파일"></div>
+        <div class="br-card__body preview-grid">
+          <ul id="file-list" class="file-list" role="tablist" aria-label="생성될 파일"></ul>
           <pre id="preview-code" class="preview-code br-mono" tabindex="0" role="tabpanel" aria-label="선택한 파일의 내용"></pre>
         </div>
         <div class="br-card__footer preview-actions">

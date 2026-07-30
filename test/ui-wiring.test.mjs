@@ -4,6 +4,7 @@
 // 조용히 null 이 되고, 증상은 "버튼을 눌러도 아무 일이 없다" 로 나타난다. 이 테스트가
 // 그 자리를 메운다.
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -78,6 +79,15 @@ test('render.js 가 만드는 클래스가 모두 CSS 에 있다', () => {
 
   const missing = [...used].filter((name) => !defined.has(name)).sort();
   assert.deepEqual(missing, [], `CSS 에 없는 클래스: ${missing.join(' ')}`);
+});
+
+test('app.js 가 문법 오류 없이 파싱된다', () => {
+  // app.js 는 어떤 테스트도 import 하지 않는다 — 최상위에서 document 를 만지므로
+  // Node 에서 실행할 수 없다. 그래서 문법 오류가 있어도 브라우저를 열기 전까지
+  // 아무도 모른다. --check 는 실행하지 않고 파싱만 한다.
+  for (const path of ['src/ui/app.js', 'src/ui/render.js', 'src/ui/sample.js']) {
+    execFileSync(process.execPath, ['--check', fileURLToPath(new URL(`../${path}`, import.meta.url))]);
+  }
 });
 
 test('app.js 는 데모 코드를 남기지 않았다', () => {

@@ -147,7 +147,92 @@ export function renderReport(container, diagnostics) {
 }
 
 /**
- * 탭 한 줄을 그린다. 미리보기의 형식 탭과 파일 탭이 같은 모양을 쓴다.
+ * 바이트 수를 사람이 읽는 문자열로 만든다.
+ *
+ * file-intake 의 formatBytes 는 업로드한 파일 크기를 위한 것이라 KB 아래를 반올림한다.
+ * 생성 파일은 수백 바이트가 흔해 B 단위가 필요하다.
+ *
+ * @param {number} bytes
+ * @returns {string}
+ */
+export function formatOutputSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/**
+ * 생성될 파일 목록을 그린다. 목록의 각 줄이 미리보기 선택도 겸한다.
+ *
+ * 파일명만 보여주면 Grade.cs 가 enum 인지 클래스인지 알 수 없다. 무엇인지와 크기를
+ * 함께 붙인다.
+ *
+ * @param {HTMLElement} container
+ * @param {{files: Array<{fileName: string, description: string, bytes: number}>, activeFile: string|null, onSelect: (fileName: string) => void}} options
+ */
+export function renderFileList(container, { files, activeFile, onSelect }) {
+  clear(container);
+
+  if (files.length === 0) {
+    container.append(element('li', 'file-empty', '내보낼 시트를 하나 이상 고르세요.'));
+    return;
+  }
+
+  for (const file of files) {
+    const row = element('li');
+    const button = element('button', 'file-row');
+    button.type = 'button';
+    button.setAttribute('role', 'tab');
+
+    const active = file.fileName === activeFile;
+    button.setAttribute('aria-selected', String(active));
+    if (active) button.classList.add('is-active');
+
+    const head = element('span', 'file-head');
+    head.append(element('span', 'file-name', file.fileName));
+    head.append(element('span', 'file-size', formatOutputSize(file.bytes)));
+    button.append(head);
+    button.append(element('span', 'file-description', file.description));
+
+    button.addEventListener('click', () => onSelect(file.fileName));
+    row.append(button);
+    container.append(row);
+  }
+}
+
+/**
+ * 가이드의 시트 구조 표를 그린다.
+ *
+ * 표를 HTML 에 손으로 쓰지 않는 이유는 예시 데이터를 고쳤을 때 가이드가 조용히
+ * 낡는 것을 막기 위해서다 (sample.js 의 guideRows).
+ *
+ * @param {HTMLTableElement} table
+ * @param {Array<{label: string, rowNumber: number, cells: string[]}>} rows
+ */
+export function renderGuideTable(table, rows) {
+  clear(table);
+
+  const columnCount = Math.max(...rows.map((row) => row.cells.length));
+  const head = table.createTHead().insertRow();
+  head.append(element('th', 'guide-corner', ''));
+  for (let index = 0; index < columnCount; index += 1) {
+    head.append(element('th', null, String.fromCharCode(65 + index)));
+  }
+  head.append(element('th', 'guide-note', ''));
+
+  const body = table.createTBody();
+  for (const row of rows) {
+    const line = body.insertRow();
+    line.append(element('th', 'guide-rownum', String(row.rowNumber)));
+    for (let index = 0; index < columnCount; index += 1) {
+      line.append(element('td', null, row.cells[index] ?? ''));
+    }
+    line.append(element('td', 'guide-note', row.label));
+  }
+}
+
+/**
+ * 탭 한 줄을 그린다. 미리보기의 형식 탭이 쓴다.
  *
  * @param {HTMLElement} container
  * @param {Array<{id: string, label: string}>} items
