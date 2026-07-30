@@ -1,6 +1,6 @@
 // 워크북 바이트 → 2차원 문자열 배열
 //
-// 사양: docs/notation.md §5.1, §3.2 · docs/spec.md §3.5
+// 사양: docs/notation.md §5.1, §3.2 · docs/spec.md §3.6
 //
 // CLAUDE.md 규칙 5: core/ 에서 SheetJS 를 아는 유일한 파일이다. 나머지 모듈은
 // 여기가 낸 2차원 문자열 배열만 받는다. 그래야 CSV·구글시트·CLI 입력을 붙일 때
@@ -29,7 +29,7 @@ export function readWorkbook(data, { fileName } = {}) {
   }));
 
   // CSV 는 시트가 하나뿐인 워크북으로 취급하고 시트명을 파일명에서 가져온다
-  // (spec.md §3.5). SheetJS 는 'Sheet1' 이라는 이름을 붙인다.
+  // (spec.md §3.6). SheetJS 는 'Sheet1' 이라는 이름을 붙인다.
   if (/\.csv$/i.test(fileName) && sheets.length === 1) {
     sheets[0].name = csvSheetName(fileName);
   }
@@ -39,7 +39,7 @@ export function readWorkbook(data, { fileName } = {}) {
 
 function readRaw(data) {
   if (typeof data === 'string') {
-    // spec.md §3.5: UTF-8 만 받되 BOM 유무는 무관하다. SheetJS 는 문자열 입력에서
+    // spec.md §3.6: UTF-8 만 받되 BOM 유무는 무관하다. SheetJS 는 문자열 입력에서
     // BOM 을 벗기지 않아, 두면 첫 필드명이 보이지 않는 문자로 시작하는 값이 된다.
     return XLSX.read(stripBom(data), { type: 'string', ...READ_OPTIONS });
   }

@@ -48,7 +48,7 @@ test('basic 픽스처가 골든 IR 과 일치한다', () => {
 });
 
 test('CSV 도 IR 까지 이어진다', () => {
-  // spec.md §3.5: 시트가 하나뿐인 워크북으로 취급하고 시트명은 파일명에서 온다.
+  // spec.md §3.6: 시트가 하나뿐인 워크북으로 취급하고 시트명은 파일명에서 온다.
   const csv = ['id,name,hp', 'int,loc,int', '고유ID,이름,체력', '1001,MON_SLIME,30'].join('\n');
   const { ir, diagnostics } = buildIR(readWorkbook(csv, { fileName: 'Monster.csv' }));
 
@@ -64,8 +64,8 @@ test('CSV 도 IR 까지 이어진다', () => {
 test('IR 은 버전·원본·레이아웃을 갖는다', () => {
   const { ir } = buildIR(workbook({ Monster: MONSTER }, 'gamedata.xlsx'));
 
-  assert.equal(ir.irVersion, 2);
-  assert.deepEqual(ir.source, { fileName: 'gamedata.xlsx', sheetCount: 1 });
+  assert.equal(ir.irVersion, 3);
+  assert.deepEqual(ir.source, { files: ['gamedata.xlsx'], sheetCount: 1 });
   assert.deepEqual(ir.layout, { nameRow: 1, typeRow: 2, commentRow: 3, dataStartRow: 4 });
 });
 

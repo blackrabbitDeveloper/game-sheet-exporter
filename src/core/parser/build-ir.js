@@ -47,7 +47,12 @@ export function buildIR(workbook, options = {}) {
 
     const header = parseHeader(sheet.name, sheet.rows, { layout });
     diagnostics.push(...header.diagnostics);
-    dataSheets.push({ name: sheet.name, rows: sheet.rows, fields: header.fields });
+    dataSheets.push({
+      name: sheet.name,
+      sourceFile: sheet.sourceFile ?? workbook.fileName ?? null,
+      rows: sheet.rows,
+      fields: header.fields,
+    });
   }
 
   // 이 시점에 "Item.id 는 int" 를 알게 된다.
@@ -72,6 +77,7 @@ export function buildIR(workbook, options = {}) {
   // ── pass 2: 데이터 행 캐스팅 ──────────────────────────────────────
   const sheets = dataSheets.map((sheet) => ({
     name: sheet.name,
+    sourceFile: sheet.sourceFile,
     className: toClassName(sheet.name),
     primaryKey: sheet.fields[0]?.name ?? null,
     fields: sheet.fields,
@@ -81,8 +87,8 @@ export function buildIR(workbook, options = {}) {
   return {
     ir: {
       irVersion: IR_VERSION,
-      // 원본 파일에 대한 정보이므로 무시 시트를 뺀 수가 아니다.
-      source: { fileName: workbook.fileName, sheetCount: workbook.sheets.length },
+      // 파일이 여럿일 수 있다 (§3.5). 무시 시트를 빼기 전의 수를 담는다.
+      source: { files: sourceFiles(workbook), sheetCount: workbook.sheets.length },
       layout,
       enums,
       sheets,
@@ -251,6 +257,17 @@ function flatten(node) {
 
 // 시트명과 필드명에 한글·공백·특수문자·점이 다 들어오므로 단순히 이어붙이면
 // 'A.b' + 'c' 와 'A' + 'b.c' 가 같은 키가 된다. JSON 배열로 감싸 애매함을 없앤다.
+/**
+ * 입력 파일 목록.
+ *
+ * merge.js 를 거치면 files 가 실려 온다. 파일 하나를 그대로 넘기는 경로도 남겨둔다 —
+ * 테스트와 CLI 가 워크북 하나만 만들어 넘길 수 있어야 한다.
+ */
+function sourceFiles(workbook) {
+  if (Array.isArray(workbook.files)) return [...workbook.files];
+  return workbook.fileName === undefined ? [] : [workbook.fileName];
+}
+
 function referenceKey(sheetName, fieldName) {
   return JSON.stringify([sheetName, fieldName]);
 }

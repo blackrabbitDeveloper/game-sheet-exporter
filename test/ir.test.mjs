@@ -22,7 +22,7 @@ import {
 // ── 상수 ─────────────────────────────────────────────────────────────
 
 test('IR 버전과 기본값을 고정한다', () => {
-  assert.equal(IR_VERSION, 2);
+  assert.equal(IR_VERSION, 3);
   assert.deepEqual(DEFAULT_LAYOUT, { nameRow: 1, typeRow: 2, commentRow: 3, dataStartRow: 4 });
   assert.equal(DEFAULT_ARRAY_DELIMITER, ',');
 });

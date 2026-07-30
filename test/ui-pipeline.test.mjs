@@ -216,7 +216,13 @@ test('같은 바이트는 같은 출력을 낸다', () => {
 
 test('파일명이 IR 에 담긴다', () => {
   const result = runPipeline(fixtureBytes('basic'), { fileName: '내 데이터.xlsx' });
-  assert.equal(result.ir.source.fileName, '내 데이터.xlsx');
+
+  assert.deepEqual(result.ir.source.files, ['내 데이터.xlsx']);
+  // 시트마다 어느 파일에서 왔는지 남는다 (사양 §3.5).
+  assert.deepEqual(
+    result.ir.sheets.map((sheet) => sheet.sourceFile),
+    ['내 데이터.xlsx', '내 데이터.xlsx'],
+  );
 });
 
 test('브라우저가 넘기는 바이트 형태를 모두 받는다', () => {

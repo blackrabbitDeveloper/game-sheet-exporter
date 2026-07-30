@@ -7,8 +7,10 @@
  *
  * 1 — S2. `name` 만 있었다.
  * 2 — S5. 필드에 `identifier`, 시트와 enum 에 `className` 이 생겼다 (§6.4).
+ * 3 — 여러 파일 입력. `source.fileName` 이 `source.files` 가 되고 시트에
+ *     `sourceFile` 이 생겼다 (§3.5).
  */
-export const IR_VERSION = 2;
+export const IR_VERSION = 3;
 
 /** spec.md §3.1 의 예시 구성. 하드코딩이 아니라 기본값이다. */
 export const DEFAULT_LAYOUT = Object.freeze({

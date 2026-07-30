@@ -1,7 +1,7 @@
 // SheetJS 접점의 계약을 고정한다.
 //
 // 사양: docs/notation.md §5.1(모든 셀은 문자열), §3.2(datetime 은 시리얼),
-//       docs/spec.md §3.5(CSV)
+//       docs/spec.md §3.6(CSV)
 //
 // 여기서 틀리면 그 뒤의 모든 좌표와 값이 함께 틀린다.
 import assert from 'node:assert/strict';
@@ -113,7 +113,7 @@ test('오류 셀은 오류 텍스트로 읽어 캐스팅 단계에서 잡히게 
   assert.equal(read1.rows[0][0], '#REF!');
 });
 
-// ── CSV (spec.md §3.5) ───────────────────────────────────────────────
+// ── CSV (spec.md §3.6) ───────────────────────────────────────────────
 
 test('CSV 를 시트 하나짜리 워크북으로 읽는다', () => {
   const workbook = readWorkbook('id,name\nint,loc\n고유ID,이름\n1001,MON_SLIME\n', {
