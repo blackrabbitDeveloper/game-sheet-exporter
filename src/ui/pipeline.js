@@ -14,6 +14,7 @@ import { emitJson } from '../core/emit/json.js';
 import { emitCSharpClasses } from '../core/emit/csharp/class.js';
 import { emitCSharpEnums } from '../core/emit/csharp/enum.js';
 import { emitCSharpLoader } from '../core/emit/csharp/loader.js';
+import { emitCSharpRuntime } from '../core/emit/csharp/runtime.js';
 import { DEFAULT_NAMESPACE } from '../core/emit/csharp/writer.js';
 import { validate } from '../core/validate/validator.js';
 
@@ -25,6 +26,9 @@ export const DEFAULT_SETTINGS = Object.freeze({
   arrayDelimiter: DEFAULT_ARRAY_DELIMITER,
   namespace: DEFAULT_NAMESPACE,
   minify: false,
+  // 집계 로더만이 "이 워크북이 게임 데이터 전부다" 를 전제한다 (spec §6.3).
+  loader: false,
+  loaderClassName: 'GameDataTables',
 });
 
 /**
@@ -49,6 +53,10 @@ export function normalizeSettings(raw = {}) {
     arrayDelimiter: readDelimiter(raw.arrayDelimiter),
     namespace: isBlank(raw.namespace) ? DEFAULT_SETTINGS.namespace : String(raw.namespace).trim(),
     minify: raw.minify === true || raw.minify === 'on',
+    loader: raw.loader === true || raw.loader === 'on',
+    loaderClassName: isBlank(raw.loaderClassName)
+      ? DEFAULT_SETTINGS.loaderClassName
+      : String(raw.loaderClassName).trim(),
   };
 }
 
@@ -98,11 +106,18 @@ function run(workbook, resolved) {
     outputs: {
       json: emitJson(ir, { minify: resolved.minify }),
       csv: emitCsv(ir, { arrayDelimiter: resolved.arrayDelimiter }),
-      // 순서를 고정한다: enum → 클래스 → 로더. 미리보기 탭이 이 순서로 보인다.
+      // 순서를 고정한다: 런타임 → enum → 클래스 → 집계. 미리보기 목록이 이 순서다.
+      // 런타임이 먼저인 이유는 나머지가 그것에 의존하기 때문이다.
       csharp: [
+        ...emitCSharpRuntime(ir, { namespace: resolved.namespace }),
         ...emitCSharpEnums(ir, { namespace: resolved.namespace }),
         ...emitCSharpClasses(ir, { namespace: resolved.namespace }),
-        ...emitCSharpLoader(ir, { namespace: resolved.namespace }),
+        ...(resolved.loader
+          ? emitCSharpLoader(ir, {
+              namespace: resolved.namespace,
+              loaderClassName: resolved.loaderClassName,
+            })
+          : []),
       ],
     },
   };
@@ -154,7 +169,11 @@ function describeFile(fileName, sheets, enums, ir) {
     return `enum ${definition.name} · 멤버 ${definition.members.length}개`;
   }
 
-  return `로더 · 테이블 ${ir.sheets.length}개`;
+  if (fileName === 'GameDataRuntime.cs') {
+    return '런타임 · 시트와 무관하게 항상 같은 내용';
+  }
+
+  return `집계 로더 · 테이블 ${ir.sheets.length}개`;
 }
 
 /**

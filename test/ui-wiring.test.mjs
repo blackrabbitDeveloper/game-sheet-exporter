@@ -110,6 +110,9 @@ test('index.html 이 사양 §7.1 의 설정 항목을 모두 갖는다', () => 
     'arrayDelimiter',
     'namespace',
     'format',
+    // 집계 로더는 켜야 나오므로 켤 자리가 있어야 한다 (사양 §6.3).
+    'loader',
+    'loaderClassName',
   ]) {
     assert.ok(names.has(name), `설정 입력이 없다: ${name}`);
   }

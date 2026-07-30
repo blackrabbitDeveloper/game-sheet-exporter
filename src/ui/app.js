@@ -113,6 +113,8 @@ function readSettings() {
     arrayDelimiter: data.get('arrayDelimiter'),
     namespace: data.get('namespace'),
     minify: data.get('minify') === 'on',
+    loader: data.get('loader') === 'on',
+    loaderClassName: data.get('loaderClassName'),
   };
 }
 

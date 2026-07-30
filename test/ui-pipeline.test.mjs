@@ -143,13 +143,15 @@ test('시트당 JSON 파일 하나를 낸다', () => {
   assert.match(outputs.json[0].text, /"id": 1001/);
 });
 
-test('C# 은 enum · 클래스 · 로더를 모두 낸다', () => {
+test('C# 은 런타임 · enum · 클래스를 낸다', () => {
   const { outputs } = runPipeline(fixtureBytes('basic'), { fileName: 'basic.xlsx' });
   const names = outputs.csharp.map((file) => file.fileName);
 
+  assert.ok(names.includes('GameDataRuntime.cs'), '런타임이 빠졌다');
   assert.ok(names.includes('Grade.cs'), 'enum 이 빠졌다');
   assert.ok(names.includes('Monster.cs'), '데이터 클래스가 빠졌다');
-  assert.ok(names.includes('GameDataTables.cs'), '로더가 빠졌다');
+  // 집계 로더는 켜야 나온다 (spec §6.3).
+  assert.equal(names.includes('GameDataTables.cs'), false);
 });
 
 test('네임스페이스 설정이 C# 출력에 반영된다', () => {
@@ -291,14 +293,15 @@ test('출력 파일마다 무엇인지와 크기를 붙인다', () => {
   assert.ok(monsterJson.bytes > 0);
 });
 
-test('데이터 클래스 · enum · 로더를 구분해 설명한다', () => {
-  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+test('데이터 클래스 · enum · 런타임 · 집계를 구분해 설명한다', () => {
+  const result = runOnWorkbook(SAMPLE_WORKBOOK, { settings: { loader: true } });
   const described = describeOutputs(result.ir, result.outputs);
   const find = (name) => described.find((file) => file.fileName === name).description;
 
   assert.match(find('Monster.cs'), /클래스/);
   assert.match(find('Grade.cs'), /enum/);
-  assert.match(find('GameDataTables.cs'), /로더/);
+  assert.match(find('GameDataRuntime.cs'), /런타임/);
+  assert.match(find('GameDataTables.cs'), /집계/);
 });
 
 test('크기는 UTF-8 바이트 수다', () => {
@@ -319,4 +322,74 @@ test('설명 목록의 순서가 출력 순서와 같다', () => {
 
   const jsonNames = described.filter((file) => file.format === 'json').map((file) => file.fileName);
   assert.deepEqual(jsonNames, result.outputs.json.map((file) => file.fileName));
+});
+
+// ── 로더 옵션 (spec.md §6.3) ─────────────────────────────────────────
+
+test('C# 출력에 런타임이 항상 들어간다', () => {
+  const { outputs } = runOnWorkbook(SAMPLE_WORKBOOK);
+  const names = outputs.csharp.map((file) => file.fileName);
+
+  assert.ok(names.includes('GameDataRuntime.cs'), '런타임이 빠지면 생성 코드가 컴파일되지 않는다');
+});
+
+test('집계 로더는 기본으로 나오지 않는다', () => {
+  // 이 클래스만이 "이 워크북이 게임 데이터 전부다" 를 전제한다.
+  const { outputs } = runOnWorkbook(SAMPLE_WORKBOOK);
+  const names = outputs.csharp.map((file) => file.fileName);
+
+  assert.equal(names.includes('GameDataTables.cs'), false);
+});
+
+test('켜면 집계 로더가 나온다', () => {
+  const { outputs } = runOnWorkbook(SAMPLE_WORKBOOK, { settings: { loader: true } });
+  const names = outputs.csharp.map((file) => file.fileName);
+
+  assert.ok(names.includes('GameDataTables.cs'));
+});
+
+test('집계 로더 클래스명을 바꾼다', () => {
+  const { outputs } = runOnWorkbook(SAMPLE_WORKBOOK, {
+    settings: { loader: true, loaderClassName: 'MyTables' },
+  });
+  const names = outputs.csharp.map((file) => file.fileName);
+
+  assert.ok(names.includes('MyTables.cs'));
+  assert.equal(names.includes('GameDataTables.cs'), false);
+});
+
+test('로더 클래스명을 비우면 기본값이다', () => {
+  assert.equal(normalizeSettings({ loaderClassName: '' }).loaderClassName, 'GameDataTables');
+  assert.equal(normalizeSettings({ loaderClassName: '  Tables  ' }).loaderClassName, 'Tables');
+});
+
+test('C# 출력 순서를 고정한다', () => {
+  // 사양 §8 — 미리보기 목록이 이 순서로 보인다.
+  const { outputs } = runOnWorkbook(SAMPLE_WORKBOOK, { settings: { loader: true } });
+
+  assert.deepEqual(outputs.csharp.map((file) => file.fileName), [
+    'GameDataRuntime.cs',
+    'Grade.cs',
+    'Monster.cs',
+    'Item.cs',
+    'GameDataTables.cs',
+  ]);
+});
+
+test('런타임은 워크북이 달라도 같은 바이트다', () => {
+  const sample = runOnWorkbook(SAMPLE_WORKBOOK);
+  const basic = runPipeline(fixtureBytes('basic'), { fileName: 'basic.xlsx' });
+  const runtimeOf = (result) =>
+    result.outputs.csharp.find((file) => file.fileName === 'GameDataRuntime.cs').text;
+
+  assert.equal(runtimeOf(sample), runtimeOf(basic));
+});
+
+test('런타임 파일도 설명이 붙는다', () => {
+  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+  const described = result.described ?? describeOutputs(result.ir, result.outputs);
+  const runtime = described.find((file) => file.fileName === 'GameDataRuntime.cs');
+
+  assert.match(runtime.description, /런타임/);
+  assert.ok(runtime.bytes > 0);
 });

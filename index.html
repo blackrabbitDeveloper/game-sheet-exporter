@@ -158,6 +158,16 @@
             <label class="check"><input type="checkbox" name="minify"> JSON을 한 줄로 압축</label>
           </fieldset>
 
+          <fieldset class="settings-group">
+            <legend class="group-label">집계 로더</legend>
+            <label class="check"><input type="checkbox" name="loader"> 테이블을 모은 클래스도 내보내기</label>
+            <p class="field-hint">이 워크북이 게임 데이터 <strong>전부</strong>일 때만 맞습니다. 워크북이 여러 개면 나중에 내보낸 것이 이전 것을 덮습니다. 끄면 <code class="br-mono">GameDataTable&lt;T, TKey&gt;</code> 를 직접 씁니다.</p>
+            <label class="br-field">
+              <span class="br-label">로더 클래스명</span>
+              <input class="br-input br-mono" name="loaderClassName" value="GameDataTables" autocomplete="off" spellcheck="false">
+            </label>
+          </fieldset>
+
           <div class="form-actions">
             <button id="run-button" class="br-button br-button--primary" type="submit" disabled>검증하고 미리보기</button>
             <button id="reset-button" class="br-button" type="reset">초기화</button>
