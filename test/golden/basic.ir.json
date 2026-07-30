@@ -1,7 +1,9 @@
 {
-  "irVersion": 2,
+  "irVersion": 3,
   "source": {
-    "fileName": "basic.xlsx",
+    "files": [
+      "basic.xlsx"
+    ],
     "sheetCount": 3
   },
   "layout": {
@@ -40,6 +42,7 @@
   "sheets": [
     {
       "name": "Monster",
+      "sourceFile": "basic.xlsx",
       "className": "Monster",
       "primaryKey": "id",
       "fields": [
@@ -132,6 +135,7 @@
     },
     {
       "name": "Item",
+      "sourceFile": "basic.xlsx",
       "className": "Item",
       "primaryKey": "id",
       "fields": [
