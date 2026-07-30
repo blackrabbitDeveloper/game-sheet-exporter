@@ -170,7 +170,8 @@ function describeFile(fileName, sheets, enums, ir) {
   }
 
   if (fileName === 'GameDataRuntime.cs') {
-    return '런타임 · 시트와 무관하게 항상 같은 내용';
+    // 시트와 무관하게 항상 같은 내용이므로 프로젝트에 하나만 있으면 된다.
+    return '런타임 · 프로젝트에 한 번만 넣습니다';
   }
 
   return `집계 로더 · 테이블 ${ir.sheets.length}개`;
