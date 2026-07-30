@@ -44,6 +44,8 @@ function render(sheet, arrayDelimiter) {
 
 function encodeCell(value, arrayDelimiter) {
   if (!Array.isArray(value)) return escapeField(scalarText(value));
+  // 빈 배열은 맨 빈 필드다. 빈 셀이 [] 인지 null 인지는 타입이 알려주므로
+  // (T[] 는 [], T[]? 는 null) 둘을 따로 표기할 필요가 없다.
   if (value.length === 0) return '';
 
   // §6.2: 배열은 셀 안에서 이어 붙이고 필드 전체를 큰따옴표로 감싼다.
