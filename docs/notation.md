@@ -21,16 +21,18 @@
 ## 2. 문법
 
 ```ebnf
-type        = base , { suffix } ;
-suffix      = "?" | "[]" ;
-base        = scalar | enum-ref | sheet-ref | loc ;
+type         = base , { suffix } ;
+suffix       = "?" | "[]" ;
+base         = scalar | enum-ref | sheet-ref | loc ;
 
-scalar      = "int" | "long" | "float" | "double" | "bool" | "string" | "datetime" ;
-enum-ref    = "enum" , ":" , identifier ;
-sheet-ref   = "ref"  , ":" , identifier , "." , identifier ;
-loc         = "loc" ;
+scalar       = "int" | "long" | "float" | "double" | "bool" | "string" | "datetime" ;
+enum-ref     = "enum" , ":" , identifier ;
+sheet-ref    = "ref"  , ":" , identifier , "." , identifier ;
+loc          = "loc" ;
 
-identifier  = letter , { letter | digit | "_" } ;
+identifier   = plain-ident | quoted-ident ;
+plain-ident  = letter , { letter | digit | "_" } ;
+quoted-ident = "'" , ( char - "'" | "''" ) , { char - "'" | "''" } , "'" ;  (* §2.3 *)
 ```
 
 파싱은 **재귀 하강**으로 합니다. 정규식 하나로 처리하지 마십시오 — 접미사가 여러 개
@@ -40,9 +42,11 @@ identifier  = letter , { letter | digit | "_" } ;
 시작하면 표기가 흔들리고, 흔들린 표기는 오탈자를 숨깁니다.
 
 **토큰 사이의 공백은 무시**합니다. `ref : Item . id [ ] ?` 는 `ref:Item.id[]?` 와 같습니다.
-다만 **식별자 안에는 공백을 넣을 수 없습니다**. `enum:Item Type` 은 오류이며,
+다만 **인용하지 않은 식별자 안에는 공백을 넣을 수 없습니다**. `enum:Item Type` 은 오류이며,
 조용히 `enum:ItemType` 으로 합쳐지지 않습니다. 표기 전체에서 공백을 지워버리면
 디자이너의 오타가 유효한 표기로 둔갑합니다.
+
+이름에 정말로 공백이 들어 있으면 인용합니다 — `enum:'Item Type'` (§2.3).
 
 ### 2.1 접미사 결합 순서
 
@@ -74,6 +78,40 @@ identifier  = letter , { letter | digit | "_" } ;
 
 파서와 에미터의 지원 범위를 일부러 다르게 둡니다. 나중에 깊이를 늘릴 때 파서를
 다시 건드리지 않기 위해서입니다.
+
+### 2.3 인용 식별자
+
+`enum:` 과 `ref:` 가 가리키는 시트명·필드명은 **원본 시트의 이름**입니다. 그런데
+시트명과 필드명에는 공백이 들어옵니다 — `몬스터 정보`, `고유 ID` 는 한국어권 데이터시트에서
+흔합니다. 인용하지 않은 식별자로는 이런 이름을 가리킬 수 없으므로, **작은따옴표로 감싼
+식별자**를 함께 받습니다.
+
+```
+ref:'몬스터 정보'.'고유 ID'      → { kind: 'ref', sheet: '몬스터 정보', field: '고유 ID' }
+enum:'아이템 등급'               → { kind: 'enum', name: '아이템 등급' }
+ref:'몬스터 정보'.id[]           → 한쪽만 인용해도 됩니다
+```
+
+| 규칙 | 내용 |
+|---|---|
+| 인용은 선택 | `ref:Item.id` 는 그대로 유효합니다. 필요할 때만 감쌉니다 |
+| 안쪽 공백 보존 | 토큰 사이의 공백만 무시합니다. `'고유 ID'` 는 `고유 ID` 그대로입니다 |
+| 앞뒤 공백도 보존 | `' id '` 는 `' id '` 를 찾습니다. 조용히 다듬으면 못 찾는 이유를 알 수 없습니다 |
+| 빈 인용은 오류 | `''` 는 `E005` |
+| 따옴표 표기 | 이름 안의 `'` 는 `''` 로 씁니다 — `'Bob''s'` → `Bob's` |
+| 닫히지 않으면 오류 | `ref:'Item.id` 는 `E005` |
+| 줄바꿈 불가 | 인용 안의 줄바꿈은 `E005` |
+
+작은따옴표를 쓰는 이유는 셀 값 쪽에서 큰따옴표가 이미 다른 뜻을 갖기 때문입니다
+(§5.3, 배열 원소 인용). 같은 워크북 안에서 `"` 가 타입 행에서는 식별자를, 데이터 행에서는
+배열 원소를 감싼다면 읽는 사람이 매번 어느 규칙인지 판단해야 합니다.
+
+`[` `]` 를 쓰지 않는 이유는 배열 접미사와 충돌하기 때문입니다. `ref:[Item].[id]` 는
+`[id]` 가 이름인지 배열인지 문법으로 구분할 수 없습니다.
+
+**인용한 내용은 C# 식별자 규칙을 적용받지 않습니다.** 이것은 시트를 찾는 조회 키이고,
+C# 식별자는 그 시트의 이름을 `naming.js` 가 변환해 만듭니다 (spec.md §6.4). 즉
+`ref:'몬스터 정보'.'고유 ID'` 가 가리키는 필드는 C# 에서 `몬스터정보.고유_ID` 가 됩니다.
 
 ---
 
@@ -185,6 +223,8 @@ ref:Item.id[]
 대상 시트의 대상 필드에 그 값이 실제로 존재해야 합니다. 없으면 `E004`,
 대상 시트나 필드 자체가 없으면 `E008`입니다.
 
+시트명이나 필드명에 공백이 들어 있으면 인용합니다 — `ref:'몬스터 정보'.'고유 ID'` (§2.3).
+
 C# 타입은 **대상 필드의 타입을 그대로** 따릅니다. `Item.id`가 `int`이므로
 `ref:Item.id[]`는 `int[]`가 됩니다.
 
@@ -257,6 +297,12 @@ C# 타입은 **대상 필드의 타입을 그대로** 따릅니다. `Item.id`가
 | `ref:Item.id` | `{ kind: 'ref', sheet: 'Item', field: 'id' }` |
 | `ref:Item.id[]` | `{ kind: 'array', of: ref(Item.id) }` |
 | `ref:Item.id[]?` | `{ kind: 'nullable', of: array(ref(Item.id)) }` |
+| `enum:'아이템 등급'` | `{ kind: 'enum', name: '아이템 등급' }` |
+| `ref:'몬스터 정보'.'고유 ID'` | `{ kind: 'ref', sheet: '몬스터 정보', field: '고유 ID' }` |
+| `ref:'Bob''s'.id` | `{ kind: 'ref', sheet: "Bob's", field: 'id' }` |
+
+인용은 표기에만 있고 **결과에는 남지 않습니다.** `enum:'Grade'` 와 `enum:Grade` 는
+같은 TypeNode 를 냅니다.
 
 ---
 
@@ -281,9 +327,12 @@ C# 타입은 **대상 필드의 타입을 그대로** 따릅니다. `Item.id`가
 | `?int` | 접미사가 앞에 옴 |
 | `loc:Name` | `loc`은 인자를 받지 않음 |
 | `int x` | 표기 뒤에 남은 문자 |
-| `enum:Grade Y` | 표기 뒤에 남은 문자 — 식별자에 공백을 허용하지 않으므로 `GradeY` 로 합쳐지지 않는다 |
+| `enum:Grade Y` | 표기 뒤에 남은 문자 — 식별자에 공백을 허용하지 않으므로 `GradeY` 로 합쳐지지 않는다. 이름이 정말 `Grade Y` 면 `enum:'Grade Y'` 로 쓴다 (§2.3) |
 | `ref:Item.id.extra` | 표기 뒤에 남은 문자 |
 | `int[]]` | `[` 없이 `]` |
+| `enum:''` | 빈 인용 식별자 (§2.3) |
+| `ref:'Item.id` | 닫히지 않은 인용 |
+| `ref:'Item'.'id'x` | 인용 뒤에 남은 문자 |
 
 문자열이 아닌 입력(`null`, 숫자, 객체)도 `E005`입니다.
 
