@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
 import { parseTypeNotation } from '../src/core/parser/type-notation.js';
+import { formatType } from '../src/core/parser/value-parser.js';
 
 const scalar = (name) => ({ kind: 'scalar', name });
 const nullable = (of) => ({ kind: 'nullable', of });
@@ -86,6 +87,105 @@ test('한글 식별자를 허용한다', () => {
   // spec.md §6.4 — C# 명세상 유니코드 식별자는 합법이다
   assert.deepEqual(parseTypeNotation('enum:등급'), enumRef('등급'));
   assert.deepEqual(parseTypeNotation('ref:아이템.번호'), ref('아이템', '번호'));
+});
+
+// ── 인용 식별자 (notation.md §2.3) ───────────────────────────────────
+
+test('인용 식별자를 파싱한다', () => {
+  assert.deepEqual(parseTypeNotation("enum:'아이템 등급'"), enumRef('아이템 등급'));
+  assert.deepEqual(
+    parseTypeNotation("ref:'몬스터 정보'.'고유 ID'"),
+    ref('몬스터 정보', '고유 ID'),
+  );
+});
+
+test('한쪽만 인용해도 된다', () => {
+  assert.deepEqual(parseTypeNotation("ref:'몬스터 정보'.id"), ref('몬스터 정보', 'id'));
+  assert.deepEqual(parseTypeNotation("ref:Item.'고유 ID'"), ref('Item', '고유 ID'));
+});
+
+test('인용 식별자에 접미사를 붙인다', () => {
+  assert.deepEqual(
+    parseTypeNotation("ref:'몬스터 정보'.'고유 ID'[]"),
+    array(ref('몬스터 정보', '고유 ID')),
+  );
+  assert.deepEqual(
+    parseTypeNotation("enum:'아이템 등급'[]?"),
+    nullable(array(enumRef('아이템 등급'))),
+  );
+});
+
+test('인용 안의 공백은 앞뒤까지 보존한다', () => {
+  // 조용히 다듬으면 시트를 못 찾는 이유를 사용자가 알 수 없다.
+  assert.deepEqual(parseTypeNotation("enum:' 등급 '"), enumRef(' 등급 '));
+  assert.deepEqual(parseTypeNotation("ref:'a  b'.'c'"), ref('a  b', 'c'));
+});
+
+test('인용 밖의 공백은 여전히 무시한다', () => {
+  assert.deepEqual(parseTypeNotation("ref : 'a b' . 'c d' [ ]"), array(ref('a b', 'c d')));
+});
+
+test("이름 안의 따옴표는 '' 로 쓴다", () => {
+  assert.deepEqual(parseTypeNotation("ref:'Bob''s'.id"), ref("Bob's", 'id'));
+  assert.deepEqual(parseTypeNotation("enum:''''"), enumRef("'"));
+});
+
+test('인용은 결과에 남지 않는다', () => {
+  // enum:'Grade' 와 enum:Grade 가 다른 TypeNode 를 내면 같은 시트를 두 이름으로 찾는다.
+  assert.deepEqual(parseTypeNotation("enum:'Grade'"), parseTypeNotation('enum:Grade'));
+  assert.deepEqual(parseTypeNotation("ref:'Item'.'id'"), parseTypeNotation('ref:Item.id'));
+});
+
+test('인용한 내용은 C# 식별자 규칙을 적용받지 않는다', () => {
+  // 이것은 시트를 찾는 조회 키다. C# 식별자는 naming.js 가 따로 만든다 (spec §6.4).
+  assert.deepEqual(parseTypeNotation("enum:'1등급'"), enumRef('1등급'));
+  assert.deepEqual(parseTypeNotation("ref:'item-drop'.'#no'"), ref('item-drop', '#no'));
+});
+
+test('인용 식별자의 거부 사례', () => {
+  const cases = [
+    ["enum:''", '빈 인용'],
+    ["ref:''.id", '빈 인용'],
+    ["ref:Item.''", '빈 인용'],
+    ["ref:'Item.id", '닫히지 않은 인용'],
+    ["enum:'Grade", '닫히지 않은 인용'],
+    ["ref:'Item'.'id'x", '인용 뒤에 남은 문자'],
+    ["enum:'Grade'Y", '인용 뒤에 남은 문자'],
+    ["enum:'Gr\nade'", '인용 안의 줄바꿈'],
+    ["ref:'Item'id", '점 누락'],
+    ["'int'", '스칼라는 인용할 수 없다'],
+  ];
+  for (const [input, reason] of cases) assertRejected(input, reason);
+});
+
+test('formatType 이 되돌린 표기는 다시 파싱된다', () => {
+  // 진단 메시지가 이 문자열을 보여주고, value-parser 는 "이렇게 적으십시오" 로 쓴다.
+  // 되돌린 표기가 E005 면 도구가 거부할 표기를 사용자에게 지시하는 셈이다.
+  const inputs = [
+    'int',
+    'int?[]',
+    'loc',
+    'enum:Grade',
+    'ref:Item.id[]',
+    "enum:'아이템 등급'",
+    "ref:'몬스터 정보'.'고유 ID'[]",
+    "ref:'Bob''s'.id",
+    "enum:'1등급'",
+    "ref:'item-drop'.'#no'",
+    "enum:' 등급 '",
+  ];
+  for (const input of inputs) {
+    const node = parseTypeNotation(input);
+    const formatted = formatType(node);
+    assert.deepEqual(parseTypeNotation(formatted), node, `${input} → ${formatted}`);
+  }
+});
+
+test('formatType 은 인용이 필요할 때만 인용한다', () => {
+  assert.equal(formatType(parseTypeNotation('enum:Grade')), 'enum:Grade');
+  assert.equal(formatType(parseTypeNotation("enum:'Grade'")), 'enum:Grade');
+  assert.equal(formatType(parseTypeNotation("enum:'아이템 등급'")), "enum:'아이템 등급'");
+  assert.equal(formatType(parseTypeNotation("ref:'Bob''s'.id")), "ref:'Bob''s'.id");
 });
 
 // ── 공백과 대소문자 (notation.md §2) ─────────────────────────────────

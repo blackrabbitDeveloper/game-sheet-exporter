@@ -7,6 +7,7 @@
 // 밸런스 데이터에서 가장 찾기 어려운 버그가 된다.
 import { diagnostic } from '../ir/diagnostic.js';
 import { DEFAULT_ARRAY_DELIMITER } from '../ir/schema.js';
+import { formatIdentifier } from './type-notation.js';
 
 const INTEGER = /^-?[0-9]+$/;
 const DECIMAL = /^-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?$/;
@@ -64,9 +65,9 @@ export function formatType(node) {
     case 'loc':
       return 'loc';
     case 'enum':
-      return `enum:${node.name}`;
+      return `enum:${formatIdentifier(node.name)}`;
     case 'ref':
-      return `ref:${node.sheet}.${node.field}`;
+      return `ref:${formatIdentifier(node.sheet)}.${formatIdentifier(node.field)}`;
     default:
       return '알 수 없는 타입';
   }
