@@ -2,7 +2,7 @@
 //
 // 사양: docs/spec.md §5.1(리포트 형식), §5.5(두 단계가 같은 목록에 모인다)
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
@@ -24,6 +24,19 @@ test('규칙이 코드 중복 없이 등록돼 있다', () => {
   const codes = RULES.map((rule) => rule.code);
   assert.deepEqual([...new Set(codes)], codes, '같은 코드의 규칙이 둘 이상 등록됐다');
   assert.ok(codes.length >= 7, `등록된 규칙: ${codes.join(', ')}`);
+});
+
+test('rules 디렉터리의 규칙 파일과 등록 목록이 일치한다', () => {
+  // 사양 §5.4 — 파일만 만들고 validator.js 의 배열에 넣기를 잊으면 규칙이 조용히
+  // 실행되지 않는다. core/ 는 파일 시스템을 못 쓰지만 이 테스트는 Node 에서 돈다.
+  const files = readdirSync(join(here, '..', 'src', 'core', 'validate', 'rules'))
+    .filter((name) => name.endsWith('.js'))
+    .map((name) => name.slice(0, -'.js'.length))
+    .sort();
+  const codes = RULES.map((rule) => rule.code).sort();
+
+  // 이 비교는 "파일명 = 그 파일이 내는 코드" 까지 함께 증명한다.
+  assert.deepEqual(codes, files, '규칙 파일과 등록 목록이 어긋난다');
 });
 
 test('등록 순서가 소스에 박혀 있다', () => {

@@ -2,6 +2,7 @@
 //
 // 사양: docs/spec.md §5.4(규칙 하나당 파일 하나), §5.5(두 단계가 한 목록에 모인다)
 import { sortDiagnostics } from '../ir/diagnostic.js';
+import * as E004 from './rules/E004.js';
 import * as E007 from './rules/E007.js';
 import * as E009 from './rules/E009.js';
 import * as E011 from './rules/E011.js';
@@ -24,7 +25,7 @@ import * as W106 from './rules/W106.js';
  * 이 배열에 넣어야 한다 — 파일만 만들고 잊으면 조용히 실행되지 않으므로,
  * test/validate.test.mjs 가 등록 개수를 확인한다.
  */
-export const RULES = [E007, E009, E011, E012, E015, W101, W102, W103, W104, W105, W106];
+export const RULES = [E004, E007, E009, E011, E012, E015, W101, W102, W103, W104, W105, W106];
 
 /**
  * @param {object} ir

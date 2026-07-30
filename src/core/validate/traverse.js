@@ -21,6 +21,41 @@ export function baseType(type) {
 }
 
 /**
+ * 시트명 + 필드명을 하나의 키로 만든다.
+ *
+ * 원본 이름에는 공백·한글·특수문자가 들어오므로 구분자를 골라 이어 붙이면 어떤
+ * 문자를 골라도 충돌할 수 있다.
+ *
+ * @param {string} sheetName 원본 시트명
+ * @param {string} fieldName 원본 필드명
+ * @returns {string}
+ */
+export function fieldKey(sheetName, fieldName) {
+  return JSON.stringify([sheetName, fieldName]);
+}
+
+/**
+ * `ref:` 가 가리키는 대상 필드의 키 집합.
+ *
+ * E004(대상 값이 있는지)와 E012(대상이 유일한지)가 같은 집합을 봐야 한다. 두 곳에서
+ * 따로 모으면 갈라지는 순간 E004 가 검사하는 필드에 E012 가 유일성을 걸지 않고,
+ * 그러면 참조가 어느 행을 가리키는지 모호해진 것을 아무도 알려주지 않는다.
+ *
+ * @param {object} ir
+ * @returns {Set<string>} fieldKey 의 집합
+ */
+export function refTargetKeys(ir) {
+  const keys = new Set();
+  for (const sheet of ir.sheets) {
+    for (const field of sheet.fields) {
+      const leaf = baseType(field.type);
+      if (leaf?.kind === 'ref') keys.add(fieldKey(leaf.sheet, leaf.field));
+    }
+  }
+  return keys;
+}
+
+/**
  * 모든 데이터 시트의 잎 값을 순서대로 방문한다.
  *
  * 배열은 원소 단위로 풀어서 준다. 빈 값(null)은 건너뛴다 — nullable 이 비었거나

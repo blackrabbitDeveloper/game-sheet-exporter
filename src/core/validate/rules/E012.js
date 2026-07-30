@@ -5,20 +5,17 @@
 // 유일해야 하는 필드는 두 종류다: 각 시트의 기본키, 그리고 ref 가 가리키는 대상 필드.
 // 참조 대상이 아닌 필드의 중복은 문제 삼지 않는다 — 등급이나 분류 열은 겹치는 게 정상이다.
 import { diagnostic } from '../../ir/diagnostic.js';
-import { baseType } from '../traverse.js';
+import { fieldKey, refTargetKeys } from '../traverse.js';
 
 export const code = 'E012';
 export const title = '유일성 위반';
 
 export function check(ir) {
-  const required = new Set();
+  // 참조 대상은 E004 와 같은 집합을 본다. 여기서 따로 모으면 둘이 갈라진다.
+  const required = refTargetKeys(ir);
 
   for (const sheet of ir.sheets) {
     if (sheet.primaryKey !== null) required.add(fieldKey(sheet.name, sheet.primaryKey));
-    for (const field of sheet.fields) {
-      const leaf = baseType(field.type);
-      if (leaf?.kind === 'ref') required.add(fieldKey(leaf.sheet, leaf.field));
-    }
   }
 
   const found = [];
@@ -53,10 +50,6 @@ export function check(ir) {
   }
 
   return found;
-}
-
-function fieldKey(sheetName, fieldName) {
-  return JSON.stringify([sheetName, fieldName]);
 }
 
 function format(value) {

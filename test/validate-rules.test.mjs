@@ -3,6 +3,7 @@
 // 사양: docs/spec.md §5.2, §5.3
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import * as E004 from '../src/core/validate/rules/E004.js';
 import * as E007 from '../src/core/validate/rules/E007.js';
 import * as E009 from '../src/core/validate/rules/E009.js';
 import * as E011 from '../src/core/validate/rules/E011.js';
@@ -28,7 +29,7 @@ const ENUM_GRADE = [
 const found = (rule, ir) => rule.check(ir).map((item) => [item.code, item.cell]);
 
 test('모든 규칙이 코드와 이름을 밝힌다', () => {
-  for (const rule of [E007, E009, E011, E012, E015, W101, W102, W103, W104, W105, W106]) {
+  for (const rule of [E004, E007, E009, E011, E012, E015, W101, W102, W103, W104, W105, W106]) {
     assert.match(rule.code, /^[EW]\d{3}$/);
     assert.ok(rule.title.trim().length > 0, `${rule.code} 의 이름이 비었다`);
     assert.equal(typeof rule.check, 'function', `${rule.code} 에 check 가 없다`);
@@ -75,6 +76,117 @@ test('E009 — 정의 시트 자체가 없으면 잡지 않는다', () => {
     Monster: [['id', 'grade'], ['int', 'enum:Grade'], ['', ''], ['1001', 'Legendary']],
   });
   assert.deepEqual(E009.check(ir), []);
+});
+
+// ── E004 참조 대상 값 없음 ───────────────────────────────────────────
+
+const ITEM = [
+  ['id', 'name'],
+  ['int', 'string'],
+  ['고유ID', '이름'],
+  ['2001', '물약'],
+  ['2002', '약초'],
+];
+
+test('E004 — 대상에 없는 참조 값을 잡는다', () => {
+  const ir = cleanIr({
+    Monster: [['id', 'drop'], ['int', 'ref:Item.id'], ['', ''], ['1001', '2003']],
+    Item: ITEM,
+  });
+
+  assert.deepEqual(found(E004, ir), [['E004', 'Monster!B4']]);
+  assert.match(E004.check(ir)[0].message, /Item\.id/);
+  assert.match(E004.check(ir)[0].message, /2003/);
+});
+
+test('E004 — 대상에 있는 값은 통과한다', () => {
+  const ir = cleanIr({
+    Monster: [['id', 'drop'], ['int', 'ref:Item.id'], ['', ''], ['1001', '2002']],
+    Item: ITEM,
+  });
+  assert.deepEqual(E004.check(ir), []);
+});
+
+test('E004 — 배열 원소를 하나씩 본다', () => {
+  const ir = cleanIr({
+    Monster: [['id', 'drops'], ['int', 'ref:Item.id[]'], ['', ''], ['1001', '2001,2003,2004']],
+    Item: ITEM,
+  });
+
+  // 배열은 셀 하나이므로 좌표가 겹친다. 값이 다르니 둘 다 고쳐야 한다.
+  assert.deepEqual(found(E004, ir), [
+    ['E004', 'Monster!B4'],
+    ['E004', 'Monster!B4'],
+  ]);
+  assert.match(E004.check(ir)[0].message, /2003/);
+  assert.match(E004.check(ir)[1].message, /2004/);
+});
+
+test('E004 — 빈 셀은 넘어간다', () => {
+  const ir = cleanIr({
+    Monster: [['id', 'drop'], ['int', 'ref:Item.id?'], ['', ''], ['1001', '']],
+    Item: ITEM,
+  });
+  assert.deepEqual(E004.check(ir), []);
+});
+
+test('E004 — 기본키가 아닌 필드를 가리켜도 된다', () => {
+  // notation.md §4.3 — 대상이 기본키가 아니어도 되고, 그 필드에 E012 가 걸린다.
+  const ir = cleanIr({
+    Monster: [['id', 'drop'], ['int', 'ref:Item.name'], ['', ''], ['1001', '약초']],
+    Item: ITEM,
+  });
+  assert.deepEqual(E004.check(ir), []);
+});
+
+test('E004 — 자기 시트를 가리켜도 된다', () => {
+  const ir = cleanIr({
+    Monster: [
+      ['id', 'parent'],
+      ['int', 'ref:Monster.id?'],
+      ['', ''],
+      ['1001', ''],
+      ['1002', '1001'],
+      ['1003', '9999'],
+    ],
+  });
+  assert.deepEqual(found(E004, ir), [['E004', 'Monster!B6']]);
+});
+
+test('E004 — 대상 시트나 필드가 없으면 잡지 않는다', () => {
+  // E008 이 헤더 단계에서 필드마다 한 번 냈다. 여기서 또 내면 행 수만큼 쌓인다.
+  const missingSheet = irFrom({
+    Monster: [['id', 'drop'], ['int', 'ref:Item.id'], ['', ''], ['1001', '2003']],
+  });
+  assert.deepEqual(E004.check(missingSheet.ir), []);
+
+  const missingField = irFrom({
+    Monster: [['id', 'drop'], ['int', 'ref:Item.code'], ['', ''], ['1001', '2003']],
+    Item: ITEM,
+  });
+  assert.deepEqual(E004.check(missingField.ir), []);
+});
+
+test('E004 — 캐스팅에 실패한 값은 넘어간다', () => {
+  // E006 이 같은 셀에 이미 났다. 한 문제로 두 번 울지 않는다.
+  const { ir, diagnostics } = irFrom({
+    Monster: [['id', 'drop'], ['int', 'ref:Item.id'], ['', ''], ['1001', 'abc']],
+    Item: ITEM,
+  });
+
+  assert.deepEqual(diagnostics.map((item) => item.code), ['E006']);
+  assert.deepEqual(E004.check(ir), []);
+});
+
+test('E004 — 공백 든 시트명을 인용으로 가리킨다', () => {
+  // notation.md §2.3
+  const ir = cleanIr({
+    Monster: [['id', 'drop'], ['int', "ref:'아이템 정보'.'고유 ID'"], ['', ''], ['1001', '2003']],
+    '아이템 정보': [['고유 ID', 'name'], ['int', 'string'], ['', ''], ['2001', '물약']],
+  });
+
+  assert.deepEqual(found(E004, ir), [['E004', 'Monster!B4']]);
+  assert.match(E004.check(ir)[0].message, /아이템 정보/);
 });
 
 // ── E012 유일성 위반 ─────────────────────────────────────────────────
