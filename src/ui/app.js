@@ -31,6 +31,7 @@ const elements = {
   reportList: $('#report-list'), reportSummary: $('#report-summary'),
   formatNotice: $('#format-notice'),
   formatTabs: $('#format-tabs'), fileList: $('#file-list'), previewCode: $('#preview-code'),
+  usagePanel: $('#usage-panel'), usageCode: $('#usage-code'),
   exportNote: $('#export-note'), downloadFile: $('#download-file'), downloadAll: $('#download-all'),
   toast: $('#toast'),
 };
@@ -219,6 +220,10 @@ function showOutput() {
 
   renderReport(elements.reportList, result.diagnostics);
   elements.reportSummary.textContent = summarize(result.diagnostics);
+
+  // 생성 파일만 보면 호출부를 알 수 없다. 지금 설정 그대로의 예시를 보여준다.
+  elements.usageCode.textContent = result.usage;
+  elements.usagePanel.hidden = result.usage === '';
 
   showPreview();
 }

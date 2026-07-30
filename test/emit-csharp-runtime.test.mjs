@@ -242,3 +242,37 @@ test('CSV 를 켜도 JSON 경로가 남는다', () => {
 test('CSV 골든과 일치한다', () => {
   assertGolden('GameDataRuntime.csv.cs', csv());
 });
+
+// ── 사용법 머리말 (spec.md §6.3) ─────────────────────────────────────
+
+test('머리말에 호출부 예시를 단다', () => {
+  // 이 파일은 무엇이 있는지는 보여주지만 무엇을 써야 하는지는 안 보여준다.
+  const text = emit(MONSTER).text;
+
+  assert.match(text, /^\/\/ 사용법$/m);
+  assert.match(text, /GameDataTable<Monster, int>\.Load\(read\)/);
+  assert.match(text, /table\.Get\(1001\)/);
+  assert.match(text, /foreach \(var row in table\.Rows\)/);
+});
+
+test('예시가 고정 이름을 써서 워크북 무관 성질이 유지된다', () => {
+  // 실제 시트명을 쓰면 워크북마다 파일이 달라져 덮어쓰기 문제가 되살아난다.
+  assert.equal(emit(MONSTER).text, emit(QUEST).text);
+  assert.equal(csv(MONSTER), csv(QUEST));
+});
+
+test('CSV 를 켜면 CSV 호출부도 보여준다', () => {
+  const text = csv();
+
+  assert.match(text, /GameDataCsv\.ReadRows<Monster>\(read\)/);
+  assert.match(text, /new GameDataTable<Monster, int>\(rows\)/);
+});
+
+test('예시는 주석이라 컴파일에 영향이 없다', () => {
+  const text = emit(MONSTER).text;
+  const header = text.slice(0, text.indexOf('using System;'));
+
+  for (const line of header.split('\n').filter((item) => item.trim() !== '')) {
+    assert.match(line, /^\/\//, `주석이 아닌 줄이 있다: ${line}`);
+  }
+});

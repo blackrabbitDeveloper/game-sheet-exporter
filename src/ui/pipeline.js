@@ -15,6 +15,7 @@ import { emitCSharpClasses } from '../core/emit/csharp/class.js';
 import { emitCSharpEnums } from '../core/emit/csharp/enum.js';
 import { emitCSharpLoader } from '../core/emit/csharp/loader.js';
 import { emitCSharpRuntime } from '../core/emit/csharp/runtime.js';
+import { csharpUsage } from '../core/emit/csharp/usage.js';
 import { DEFAULT_NAMESPACE } from '../core/emit/csharp/writer.js';
 import { validate } from '../core/validate/validator.js';
 
@@ -106,6 +107,14 @@ function run(workbook, resolved) {
     diagnostics,
     blocked: hasErrors(diagnostics),
     settings: resolved,
+    // 생성 파일만 보면 호출부를 알 수 없다. 실제 시트명·기본키 타입이 들어간 예시를
+    // 함께 낸다. 파일로 내보내지는 않는다.
+    usage: csharpUsage(ir, {
+      namespace: resolved.namespace,
+      csv: resolved.formats !== null && resolved.formats.includes('csv'),
+      loader: resolved.loader,
+      loaderClassName: resolved.loaderClassName,
+    }),
     outputs: {
       json: emitJson(ir, { minify: resolved.minify }),
       csv: emitCsv(ir, { arrayDelimiter: resolved.arrayDelimiter }),

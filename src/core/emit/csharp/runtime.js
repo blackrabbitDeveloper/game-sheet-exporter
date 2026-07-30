@@ -30,6 +30,7 @@ function render(namespace, withCsv) {
   const four = INDENT.repeat(4);
 
   const lines = [
+    ...usageHeader(withCsv),
     'using System;',
     'using System.Collections.Generic;',
     // CSV 는 숫자·날짜를 문자열에서 되돌리므로 로케일을 고정해야 한다.
@@ -116,6 +117,46 @@ function render(namespace, withCsv) {
 
   lines.push('}');
   return `${lines.join('\n')}\n`;
+}
+
+/**
+ * 호출부 예시.
+ *
+ * 이 파일은 무엇이 있는지는 보여주지만 무엇을 써야 하는지는 보여주지 않는다.
+ *
+ * **Monster·int 는 고정된 예시 이름이다.** 실제 시트명을 넣으면 워크북마다 이 파일이
+ * 달라져, 이 파일이 워크북을 모르게 만든 이유가 사라진다. 실제 이름이 들어간 예시는
+ * 화면이 보여준다 (usage.js).
+ */
+function usageHeader(withCsv) {
+  const read = withCsv
+    ? [
+        '//   Func<string, string> read = name => File.ReadAllText($"Assets/GameData/{name}.csv");',
+        '//',
+        '//   List<Monster> rows = GameDataCsv.ReadRows<Monster>(read);',
+        '//   var table = new GameDataTable<Monster, int>(rows);',
+      ]
+    : [
+        '//   Func<string, string> read = name => File.ReadAllText($"Assets/GameData/{name}.json");',
+        '//',
+        '//   var table = GameDataTable<Monster, int>.Load(read);',
+      ];
+
+  return [
+    '// 사용법',
+    '//',
+    ...read,
+    '//',
+    '//   Monster found = table.Get(1001);',
+    '//   Monster other;',
+    '//   if (table.TryGet(1002, out other)) { }',
+    '//',
+    '//   foreach (var row in table.Rows) { }',
+    '//',
+    '// Monster 와 int 자리에는 생성된 데이터 클래스와 그 기본키 타입을 넣습니다.',
+    '// 읽을 파일 이름은 클래스명과 같습니다 — Monster 클래스는 Monster 를 읽습니다.',
+    '',
+  ];
 }
 
 /**

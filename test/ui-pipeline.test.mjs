@@ -486,3 +486,23 @@ test('형식을 지정하지 않으면 C# 이 나오고 CSV 리더는 없다', (
   assert.ok(outputs.csharp.length > 0);
   assert.equal(outputs.csharp.map((file) => file.text).join('\n').includes('ICsvReadable'), false);
 });
+
+// ── 사용법 (spec.md §6.3) ────────────────────────────────────────────
+
+test('결과에 호출부 예시가 함께 온다', () => {
+  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+
+  assert.match(result.usage, /GameDataTable<Monster, int>\.Load\(read\)/);
+  assert.match(result.usage, /table\.Get\(1001\)/, '예시가 실제 기본키 값을 쓴다');
+});
+
+test('예시가 설정을 따른다', () => {
+  const csvUsage = withFormats(['csharp', 'csv']).usage;
+  const loaderUsage = runOnWorkbook(SAMPLE_WORKBOOK, {
+    settings: { loader: true, namespace: 'My.Game' },
+  }).usage;
+
+  assert.match(csvUsage, /GameDataCsv\.ReadRows<Monster>/);
+  assert.match(loaderUsage, /GameDataTables\.Load\(read\)/);
+  assert.match(loaderUsage, /using My\.Game;/);
+});
