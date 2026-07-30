@@ -1,0 +1,20 @@
+E004  Monster!C5      참조 대상이 없습니다: Item.id = 2003
+                      drop_id 열. Item 시트의 id 필드에 이 값이 없습니다
+E004  Monster!D5      참조 대상이 없습니다: Item.id = 2004
+                      drops 열. Item 시트의 id 필드에 이 값이 없습니다
+E004  Monster!E6      참조 대상이 없습니다: Monster.id = 9999
+                      parent 열. Monster 시트의 id 필드에 이 값이 없습니다
+E012  Item!C5         값이 중복되었습니다: 7
+                      유일해야 하는 필드입니다: Item.code — 처음 나온 곳 Item!C4
+W105  아이템 등급!    시트명이 변환되었습니다: "아이템 등급" → "아이템등급"
+                      생성 코드와 JSON 키는 변환된 이름을 씁니다
+W105  아이템 등급!A1  필드명이 변환되었습니다: "등급 이름" → "등급_이름"
+                      생성 코드와 JSON 키는 변환된 이름을 씁니다
+E008  Drop!D1         참조 대상 정의가 없습니다: 없는시트.id
+                      ghost 열의 타입 ref:없는시트.id
+E008  Drop!E1         참조 대상 정의가 없습니다: Item.코드없음
+                      bad_field 열의 타입 ref:Item.코드없음
+E004  Drop!B5         참조 대상이 없습니다: Item.code = 9
+                      item_code 열. Item 시트의 code 필드에 이 값이 없습니다
+E004  Drop!C5         참조 대상이 없습니다: 아이템 등급.등급 이름 = 전설
+                      grade 열. 아이템 등급 시트의 등급 이름 필드에 이 값이 없습니다

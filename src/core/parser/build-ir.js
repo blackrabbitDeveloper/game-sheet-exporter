@@ -223,7 +223,9 @@ function checkTargets(field, fieldTypes, enumNames, diagnostics) {
         diagnostic(
           'E008',
           field.cell,
-          `참조 대상이 없습니다: ${node.sheet}.${node.field}`,
+          // E004(값이 없다)와 같은 문장을 쓰면 리포트에서 둘을 구분할 수 없다.
+          // 사양 §5.2 는 이 코드를 "참조 대상 정의 없음" 이라 부른다.
+          `참조 대상 정의가 없습니다: ${node.sheet}.${node.field}`,
           `${field.name} 열의 타입 ${formatType(field.type)}`,
         ),
       );

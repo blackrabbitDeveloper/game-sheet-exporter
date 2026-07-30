@@ -154,6 +154,37 @@ test('naming 픽스처가 식별자 규칙 넷을 모두 낸다', () => {
   }
 });
 
+test('refs 픽스처가 골든 리포트와 일치한다', () => {
+  assertGolden('refs.report.txt', formatReport(reportFor('refs').diagnostics));
+});
+
+test('refs 픽스처가 참조 검증 규칙 셋을 모두 낸다', () => {
+  // 마일스톤 S7 — E004(값 없음) · E008(정의 없음) · E012(대상 중복)
+  const codes = new Set(reportFor('refs').diagnostics.map((item) => item.code));
+  for (const code of ['E004', 'E008', 'E012']) {
+    assert.ok(codes.has(code), `${code} 가 빠졌다`);
+  }
+});
+
+test('E004 와 E008 은 서로 다른 문장을 쓴다', () => {
+  // 둘 다 "참조 대상이 없습니다" 로 시작하면, 값이 없는 것과 정의 자체가 없는 것을
+  // 리포트에서 구분할 수 없다. 사양 §5.2 는 E008 을 "참조 대상 정의 없음" 이라 부른다.
+  const { diagnostics } = reportFor('refs');
+  const message = (code) => diagnostics.find((item) => item.code === code).message;
+
+  assert.match(message('E004'), /^참조 대상이 없습니다/);
+  assert.match(message('E008'), /^참조 대상 정의가 없습니다/);
+});
+
+test('refs 픽스처가 인용 식별자로 공백 든 시트를 가리킨다', () => {
+  // notation.md §2.3 — 인용이 없으면 이 참조 자체가 E005 로 거부된다.
+  const { ir } = reportFor('refs');
+  const drop = ir.sheets.find((sheet) => sheet.name === 'Drop');
+  const grade = drop.fields.find((field) => field.name === 'grade');
+
+  assert.deepEqual(grade.type, { kind: 'ref', sheet: '아이템 등급', field: '등급 이름' });
+});
+
 test('basic 픽스처에는 오류가 없다', () => {
   const { diagnostics } = reportFor('basic');
 
