@@ -63,6 +63,7 @@
 .guide-rules { display: grid; gap: 8px; margin: 0; padding-left: 16px; color: var(--br-text-muted); font-size: 12px; line-height: 1.6; }
 .guide-rules strong { color: var(--br-text); }
 .guide-rules code { padding: 1px 4px; border-radius: 4px; color: var(--br-accent); background: var(--br-accent-soft); font-size: 11px; }
+.sample-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .sample-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--br-border); color: var(--br-text-muted); font-size: 12px; }
 
 /* ── 설정 폼 ─────────────────────────────────────────────────────── */

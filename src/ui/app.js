@@ -20,6 +20,7 @@ import {
   renderTabs,
   summarize,
 } from './render.js';
+import { SAMPLE_FILE_MIME, SAMPLE_FILE_NAME, buildSampleXlsx } from './sample-file.js';
 import { SAMPLE_WORKBOOK, guideRows } from './sample.js';
 
 const $ = (selector) => document.querySelector(selector);
@@ -28,6 +29,7 @@ const elements = {
   dropzone: $('#dropzone'), fileInput: $('#file-input'),
   inputList: $('#input-list'), inputSummary: $('#input-summary'), inputCount: $('#input-count'),
   inputClear: $('#input-clear'), sampleButton: $('#sample-button'),
+  sampleDownload: $('#sample-download'),
   form: $('#settings-form'), runButton: $('#run-button'),
   progressPanel: $('#progress-panel'), progressMessage: $('#progress-message'),
   progressBar: $('#progress-bar'),
@@ -384,9 +386,11 @@ function updateExportState(files) {
 
 function download(file) {
   const extension = file.fileName.split('.').pop();
-  const blob = new Blob([file.text], {
-    type: `${MIME_TYPES[extension] ?? 'text/plain'};charset=utf-8`,
-  });
+  // 생성 파일은 텍스트지만 예시 엑셀은 바이트다. 텍스트에만 charset 을 붙인다.
+  const blob =
+    file.bytes === undefined
+      ? new Blob([file.text], { type: `${MIME_TYPES[extension] ?? 'text/plain'};charset=utf-8` })
+      : new Blob([file.bytes], { type: file.mime });
   const url = URL.createObjectURL(blob);
 
   const link = document.createElement('a');
@@ -453,6 +457,10 @@ elements.dropzone.addEventListener('drop', (event) => addFiles(event.dataTransfe
 elements.fileInput.addEventListener('change', () => addFiles(elements.fileInput.files));
 elements.inputClear.addEventListener('click', resetWorkspace);
 elements.sampleButton.addEventListener('click', selectSample);
+elements.sampleDownload.addEventListener('click', () => {
+  download({ fileName: SAMPLE_FILE_NAME, bytes: buildSampleXlsx(), mime: SAMPLE_FILE_MIME });
+  showToast(`${SAMPLE_FILE_NAME} 을 저장했습니다. 고쳐서 다시 넣어 보세요.`);
+});
 elements.form.addEventListener('reset', () => requestAnimationFrame(resetWorkspace));
 elements.form.addEventListener('submit', (event) => {
   event.preventDefault();
