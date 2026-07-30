@@ -374,7 +374,7 @@ namespace GameData
 {
     /// <summary>Monster 시트의 한 행입니다.</summary>
     [Serializable]
-    public sealed class Monster
+    public sealed class Monster : IGameData<int>
     {
         /// <summary>고유ID</summary>
         public int id;
@@ -390,9 +390,15 @@ namespace GameData
 
         /// <summary>드랍 (→ Item.id)</summary>
         public List<int> drop_ids;
+
+        /// <summary>기본키입니다 (id).</summary>
+        int IGameData<int>.Key => id;
     }
 }
 ```
+
+`Key`가 맨 뒤에 오는 이유는 필드 순서가 시트 열 순서여야 하기 때문입니다 (§6.1과
+같은 이유). 인터페이스는 아래 로더 절에서 설명합니다.
 
 **`GameDataRuntime.cs`** — 런타임 (시트를 모릅니다)
 ```csharp
@@ -444,19 +450,7 @@ quests.xlsx  내보내기 → GameDataTables.cs { QuestTable }    ← 앞의 것
 아는 부분(데이터 클래스)과 모르는 부분(런타임)이 갈라지고, 각 파일이 자기가 아는
 범위에서 완결됩니다.
 
-#### 데이터 클래스가 인터페이스를 구현한다
-
-§6.3의 `Monster.cs`에 한 줄이 늘어납니다.
-
-```csharp
-public sealed class Monster : IGameData<int>
-{
-    public int id;
-    // ...
-
-    int IGameData<int>.Key => id;
-}
-```
+#### 왜 `Key`가 명시적 구현인가
 
 `Key`를 **명시적 구현**으로 내는 이유는 이름 충돌입니다. 보통 프로퍼티로 내면
 `Key`라는 열이 있는 시트에서 필드와 겹쳐 컴파일이 깨집니다. 명시적 구현은 클래스의

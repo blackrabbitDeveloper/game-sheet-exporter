@@ -98,7 +98,7 @@ test('사양의 데이터 클래스 형태 그대로 낸다', () => {
       '{',
       '    /// <summary>Monster 시트의 한 행입니다.</summary>',
       '    [Serializable]',
-      '    public sealed class Monster',
+      '    public sealed class Monster : IGameData<int>',
       '    {',
       '        /// <summary>고유ID</summary>',
       '        public int id;',
@@ -114,6 +114,9 @@ test('사양의 데이터 클래스 형태 그대로 낸다', () => {
       '',
       '        /// <summary>드랍 (→ Item.id)</summary>',
       '        public List<int> drop_ids;',
+      '',
+      '        /// <summary>기본키입니다 (id).</summary>',
+      '        int IGameData<int>.Key => id;',
       '    }',
       '}',
       '',
@@ -221,4 +224,67 @@ test('두 번 내보내면 바이트가 같다', () => {
   const ir = basicIr();
   assert.deepEqual(emitCSharpEnums(ir), emitCSharpEnums(structuredClone(ir)));
   assert.deepEqual(emitCSharpClasses(ir), emitCSharpClasses(structuredClone(ir)));
+});
+
+// ── IGameData 구현 (spec.md §6.3) ────────────────────────────────────
+
+test('기본키가 있으면 IGameData 를 구현한다', () => {
+  const text = classText({ Monster: [['id', 'hp'], ['int', 'int'], ['', ''], ['1001', '30']] });
+
+  assert.match(text, /public sealed class Monster : IGameData<int>/);
+  assert.match(text, /int IGameData<int>\.Key => id;/);
+});
+
+test('Key 를 명시적 구현으로 낸다', () => {
+  // 보통 프로퍼티로 내면 Key 라는 열이 있는 시트에서 필드와 겹쳐 컴파일이 깨진다.
+  const text = classText({
+    Monster: [['id', 'Key'], ['int', 'string'], ['', ''], ['1001', 'K']],
+  });
+
+  assert.match(text, /public string Key;/, '시트의 Key 열은 그대로 필드가 된다');
+  assert.match(text, /int IGameData<int>\.Key => id;/, '인터페이스 멤버와 부딪히지 않는다');
+  assert.doesNotMatch(text, /public int Key\b/, '공개 프로퍼티로 내면 안 된다');
+});
+
+test('기본키 타입을 타입 인자로 쓴다', () => {
+  const text = classText({ Monster: [['code'], ['string'], [''], ['A']] });
+
+  assert.match(text, /class Monster : IGameData<string>/);
+  assert.match(text, /string IGameData<string>\.Key => code;/);
+});
+
+test('변환된 기본키는 식별자로 접근한다', () => {
+  const text = classText({ Monster: [['고유 ID'], ['string'], [''], ['A']] });
+  assert.match(text, /string IGameData<string>\.Key => 고유_ID;/);
+});
+
+test('enum 기본키도 타입 인자가 된다', () => {
+  const text = classText(
+    {
+      Monster: [['grade', 'hp'], ['enum:Grade', 'int'], ['', ''], ['Normal', '30']],
+      'enum.Grade': [['name', 'value'], ['string', 'int?'], ['', ''], ['Normal', '0']],
+    },
+  );
+
+  assert.match(text, /class Monster : IGameData<Grade>/);
+});
+
+test('기본키가 배열이면 인터페이스를 붙이지 않는다', () => {
+  // Dictionary 의 키가 될 수 없다. 그런 시트는 Rows 로만 쓴다 (spec §6.3).
+  const text = classText({ Monster: [['ids', 'hp'], ['int[]', 'int'], ['', ''], ['1,2', '30']] });
+
+  assert.match(text, /public sealed class Monster$/m);
+  assert.doesNotMatch(text, /IGameData/);
+});
+
+test('인터페이스를 붙여도 필드 순서는 시트 열 순서다', () => {
+  // Key 구현은 필드 뒤에 온다. 사양 §6.1 의 "키 순서 = 시트 열 순서" 와 같은 이유로
+  // 필드 사이에 끼어들면 안 된다.
+  const text = classText({ Monster: [['id', 'hp'], ['int', 'int'], ['', ''], ['1001', '30']] });
+  const positions = ['public int id;', 'public int hp;', 'int IGameData<int>.Key'].map((needle) =>
+    text.indexOf(needle),
+  );
+
+  assert.deepEqual(positions, [...positions].sort((a, b) => a - b));
+  assert.ok(positions.every((position) => position > 0));
 });

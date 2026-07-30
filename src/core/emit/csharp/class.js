@@ -4,7 +4,7 @@
 //
 // 필드명은 변환된 식별자를 쓰고 주석은 원본을 보존한다. 그래야 생성 코드를 보는
 // 사람이 시트의 어느 열인지 찾아갈 수 있다.
-import { toCSharpType } from './types.js';
+import { indexableKey, toCSharpType } from './types.js';
 import { DEFAULT_NAMESPACE, INDENT, docComment } from './writer.js';
 
 /**
@@ -33,11 +33,16 @@ function render(sheet, ir, namespace) {
     usings.push('using System.Collections.Generic;');
   }
 
+  // 기본키를 Dictionary 의 키로 쓸 수 있는 시트만 IGameData 를 구현한다. 배열
+   // 기본키는 인덱스를 만들 수 없어 GameDataTable 의 제약을 만족하지 못한다.
+  const key = indexableKey(sheet, ir);
+  const inherits = key === null ? '' : ` : IGameData<${key.csharpType}>`;
+
   const body = [
     // 클래스 요약은 원본 시트명을 쓴다. 생성 코드에서 시트를 찾아갈 수 있어야 한다.
     `${INDENT}/// <summary>${sheet.name} 시트의 한 행입니다.</summary>`,
     `${INDENT}[Serializable]`,
-    `${INDENT}public sealed class ${sheet.className}`,
+    `${INDENT}public sealed class ${sheet.className}${inherits}`,
     `${INDENT}{`,
   ];
 
@@ -46,6 +51,16 @@ function render(sheet, ir, namespace) {
     const summary = docComment(describe(member.field), INDENT.repeat(2));
     if (summary !== null) body.push(summary);
     body.push(`${INDENT.repeat(2)}public ${member.csharpType} ${member.field.identifier};`);
+  }
+
+  if (key !== null) {
+    // 명시적 구현이라 시트에 Key 열이 있어도 필드와 부딪히지 않는다 (spec §6.3).
+    // 필드 뒤에 두어 "필드 순서 = 시트 열 순서" 를 흐트리지 않는다.
+    body.push('');
+    body.push(`${INDENT.repeat(2)}/// <summary>기본키입니다 (${sheet.primaryKey}).</summary>`);
+    body.push(
+      `${INDENT.repeat(2)}${key.csharpType} IGameData<${key.csharpType}>.Key => ${key.field.identifier};`,
+    );
   }
 
   body.push(`${INDENT}}`);
