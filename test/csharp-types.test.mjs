@@ -3,7 +3,7 @@
 // 사양: docs/notation.md §2.1, §3 · docs/spec.md §6.3
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { toCSharpType } from '../src/core/emit/csharp/types.js';
+import { indexableKey, toCSharpType } from '../src/core/emit/csharp/types.js';
 import { cleanIr } from './support/ir.mjs';
 
 /** 시트 한 장의 필드 타입을 C# 표기로 뽑는다. */
@@ -114,4 +114,40 @@ test('알 수 없는 타입은 string 으로 둔다', () => {
   const ir = cleanIr({ Monster: [['id'], ['int'], [''], ['1']] });
   assert.equal(toCSharpType({ kind: '없는종류' }, ir), 'string');
   assert.equal(toCSharpType(null, ir), 'string');
+});
+
+// ── 기본키 (spec.md §3.4, §6.3) ───────────────────────────────────────
+
+test('기본키를 인덱스로 쓸 수 있으면 타입과 필드를 낸다', () => {
+  const ir = cleanIr({ Monster: [['id', 'hp'], ['int', 'int'], ['', ''], ['1001', '30']] });
+  const key = indexableKey(ir.sheets[0], ir);
+
+  assert.equal(key.csharpType, 'int');
+  assert.equal(key.field.identifier, 'id');
+});
+
+test('기본키가 변환된 이름이면 식별자를 낸다', () => {
+  // 생성 코드는 변환된 이름으로 접근해야 한다 (spec §6.4).
+  const ir = cleanIr({ Monster: [['고유 ID'], ['string'], [''], ['A']] });
+  assert.equal(indexableKey(ir.sheets[0], ir).field.identifier, '고유_ID');
+});
+
+test('기본키가 배열이면 인덱스를 만들 수 없다', () => {
+  // Dictionary 의 키로 List<T> 를 쓸 수 없다.
+  const ir = cleanIr({ Monster: [['ids', 'hp'], ['int[]', 'int'], ['', ''], ['1,2', '30']] });
+  assert.equal(indexableKey(ir.sheets[0], ir), null);
+});
+
+test('기본키 자리가 nullable 이어도 인덱스를 만든다', () => {
+  // int? 는 Dictionary 의 키가 될 수 있다. 값이 비면 E003 이 먼저 막는다.
+  const ir = cleanIr({ Monster: [['id'], ['int?'], [''], ['1001']] });
+  assert.equal(indexableKey(ir.sheets[0], ir).csharpType, 'int?');
+});
+
+test('enum 기본키도 인덱스가 된다', () => {
+  const ir = cleanIr({
+    Monster: [['grade', 'hp'], ['enum:Grade', 'int'], ['', ''], ['Normal', '30']],
+    'enum.Grade': [['name', 'value'], ['string', 'int?'], ['', ''], ['Normal', '0']],
+  });
+  assert.equal(indexableKey(ir.sheets[0], ir).csharpType, 'Grade');
 });

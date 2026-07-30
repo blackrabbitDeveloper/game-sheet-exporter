@@ -32,6 +32,28 @@ export function toCSharpType(type, ir) {
 }
 
 /**
+ * 기본키를 Dictionary 의 키로 쓸 수 있으면 그 필드와 타입을, 아니면 null 을 낸다.
+ *
+ * class.js(IGameData<TKey> 를 붙일지)와 loader.js(테이블 타입 인자)가 같은 판단을
+ * 봐야 한다. 두 곳에서 따로 정하면 인터페이스를 붙이지 않은 클래스를 제네릭 제약이
+ * 요구하는 자리에 넣는 코드가 나오고, 생성 코드가 컴파일되지 않는다.
+ *
+ * @param {object} sheet IR 의 시트
+ * @param {object} ir
+ * @returns {{field: object, csharpType: string}|null}
+ */
+export function indexableKey(sheet, ir) {
+  const field = sheet.fields.find((item) => item.name === sheet.primaryKey) ?? null;
+  if (field === null) return null;
+
+  const csharpType = toCSharpType(field.type, ir);
+  // List<T> 는 Dictionary 의 키가 될 수 없다. 그런 시트는 목록으로만 노출한다.
+  if (csharpType.startsWith('List<')) return null;
+
+  return { field, csharpType };
+}
+
+/**
  * @param {boolean} followRef 참조를 따라갈 수 있는지. 한 단계만 따라간다 —
  *   순환 참조가 허용되므로 끝까지 따라가면 멈추지 않는다 (notation.md §4.3).
  */
