@@ -8,6 +8,7 @@
 import { DEFAULT_ARRAY_DELIMITER, DEFAULT_LAYOUT, normalizeLayout } from '../core/ir/schema.js';
 import { hasErrors } from '../core/ir/diagnostic.js';
 import { buildIR } from '../core/parser/build-ir.js';
+import { mergeWorkbooks } from '../core/parser/merge.js';
 import { readWorkbook } from '../core/parser/workbook-reader.js';
 import { emitCsv } from '../core/emit/csv.js';
 import { emitJson } from '../core/emit/json.js';
@@ -75,9 +76,28 @@ export function normalizeSettings(raw = {}) {
  * @returns {{ir: object, diagnostics: Array<object>, blocked: boolean, outputs: object}}
  */
 export function runPipeline(bytes, { fileName, settings } = {}) {
+  return runPipelineAll([{ bytes, fileName }], { settings });
+}
+
+/**
+ * 여러 파일을 한 워크북처럼 읽는다 (사양 §3.5).
+ *
+ * 병합이 buildIR 앞이라 파일을 넘는 ref 도, 참조 무결성도, 유일성 검사도 그대로
+ * 따라온다. 파일 순서는 파일명 정렬로 고정된다 — merge.js 가 한다.
+ *
+ * @param {Array<{bytes: ArrayBuffer|Uint8Array, fileName: string}>} inputs
+ * @param {{settings?: Record<string, unknown>}} [options]
+ * @returns {{ir: object, diagnostics: Array<object>, blocked: boolean, outputs: object}}
+ */
+export function runPipelineAll(inputs, { settings } = {}) {
   // 설정을 먼저 본다. 잘못된 설정으로 파일을 읽어봤자 버린다.
   const resolved = normalizeSettings(settings);
-  return run(readWorkbook(bytes, { fileName }), resolved);
+
+  const merged = mergeWorkbooks(
+    inputs.map((item) => readWorkbook(item.bytes, { fileName: item.fileName })),
+  );
+
+  return run(merged, resolved, merged.diagnostics);
 }
 
 /**
@@ -91,16 +111,20 @@ export function runPipeline(bytes, { fileName, settings } = {}) {
  * @returns {{ir: object, diagnostics: Array<object>, blocked: boolean, outputs: object}}
  */
 export function runOnWorkbook(workbook, { settings } = {}) {
-  return run(workbook, normalizeSettings(settings));
+  return run(workbook, normalizeSettings(settings), []);
 }
 
-/** 정규화가 끝난 설정으로 실제 작업을 한다. */
-function run(workbook, resolved) {
+/**
+ * 정규화가 끝난 설정으로 실제 작업을 한다.
+ *
+ * @param {Array<object>} earlier 병합 단계가 낸 진단 (E016)
+ */
+function run(workbook, resolved, earlier) {
   const { ir, diagnostics: parseDiagnostics } = buildIR(workbook, {
     layout: resolved.layout,
     arrayDelimiter: resolved.arrayDelimiter,
   });
-  const diagnostics = validate(ir, parseDiagnostics);
+  const diagnostics = validate(ir, [...earlier, ...parseDiagnostics]);
 
   return {
     ir,

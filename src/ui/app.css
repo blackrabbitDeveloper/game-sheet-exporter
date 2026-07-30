@@ -7,12 +7,15 @@
 .workspace-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(300px, .75fr); gap: 20px; align-items: start; }
 .br-dropzone p { margin: 7px 0 16px; color: var(--br-text-muted); font-size: 13px; }
 .file-constraints { color: var(--br-text-faint); font: 10px var(--br-font-mono); }
-.file-summary { min-height: 68px; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; margin-top: 16px; padding: 10px 12px; border: 1px solid var(--br-border); border-radius: var(--br-radius-md); background: var(--br-surface-muted); }
-.file-summary[hidden] { display: none; }
-.file-summary div { min-width: 0; }
-.file-summary strong, .file-summary span { display: block; }
-.file-summary strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
-.file-summary div span { margin-top: 3px; color: var(--br-text-muted); font: 10px var(--br-font-mono); }
+.input-list { display: grid; gap: 6px; margin: 16px 0 0; padding: 0; list-style: none; }
+.input-list[hidden] { display: none; }
+.input-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--br-border); border-radius: var(--br-radius-md); background: var(--br-surface-muted); }
+.input-row div { min-width: 0; }
+.input-row strong, .input-row div span { display: block; }
+.input-row strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.input-row div span { margin-top: 3px; color: var(--br-text-muted); font: 10px var(--br-font-mono); }
+.input-summary { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 12px; color: var(--br-text-muted); font: 11px var(--br-font-mono); }
+.input-summary[hidden] { display: none; }
 .file-badge { padding: 7px; border-radius: 7px; color: var(--br-accent); background: var(--br-accent-soft); font: 700 9px var(--br-font-mono); }
 .icon-action { width: 34px; height: 34px; display: grid; place-items: center; padding: 0; border: 1px solid transparent; border-radius: 8px; color: var(--br-text-muted); background: transparent; font-size: 18px; cursor: pointer; }
 .icon-action:hover { color: var(--br-text); border-color: var(--br-border); background: var(--br-surface); }

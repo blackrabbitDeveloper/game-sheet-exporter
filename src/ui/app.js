@@ -5,7 +5,12 @@
 // 파싱·검증·출력은 pipeline.js 가, DOM 생성은 render.js 가 한다. 이 파일은 이벤트를
 // 받아 둘을 잇고 패널을 여닫는 일만 한다.
 import { formatBytes, validateFile } from './file-intake.js';
-import { checkOutputSettings, describeOutputs, runOnWorkbook, runPipeline } from './pipeline.js';
+import {
+  checkOutputSettings,
+  describeOutputs,
+  runOnWorkbook,
+  runPipelineAll,
+} from './pipeline.js';
 import {
   clear,
   renderFileList,
@@ -20,9 +25,9 @@ import { SAMPLE_WORKBOOK, guideRows } from './sample.js';
 const $ = (selector) => document.querySelector(selector);
 const elements = {
   guide: $('#guide'), guideTable: $('#guide-table'),
-  dropzone: $('#dropzone'), fileInput: $('#file-input'), fileSummary: $('#file-summary'),
-  fileName: $('#file-name'), fileSize: $('#file-size'), fileRemove: $('#file-remove'),
-  sampleButton: $('#sample-button'),
+  dropzone: $('#dropzone'), fileInput: $('#file-input'),
+  inputList: $('#input-list'), inputSummary: $('#input-summary'), inputCount: $('#input-count'),
+  inputClear: $('#input-clear'), sampleButton: $('#sample-button'),
   form: $('#settings-form'), runButton: $('#run-button'),
   progressPanel: $('#progress-panel'), progressMessage: $('#progress-message'),
   progressBar: $('#progress-bar'),
@@ -40,8 +45,14 @@ const FORMAT_LABELS = { json: 'JSON', csharp: 'C#', csv: 'CSV' };
 const MIME_TYPES = { json: 'application/json', csv: 'text/csv', cs: 'text/plain' };
 const SAMPLE_LAYOUT = { nameRow: '1', typeRow: '2', commentRow: '3', dataStartRow: '4', arrayDelimiter: ',' };
 
-/** 입력은 고른 파일이거나 내장 예시다. 둘이 같은 실행 경로를 쓴다. */
-let source = null;
+/**
+ * 입력은 고른 파일들이거나 내장 예시다. 둘이 같은 실행 경로를 쓴다.
+ *
+ * 파일은 여러 개일 수 있고 병합해서 본다 (사양 §3.5). 순서는 merge.js 가 파일명으로
+ * 정하므로 여기서는 모으기만 한다.
+ */
+let files = [];
+let usingSample = false;
 let result = null;
 let selectedSheets = new Set();
 let activeFormat = 'json';
@@ -51,17 +62,30 @@ let toastTimer = null;
 
 // ── 입력 선택 ────────────────────────────────────────────────────────
 
-function selectFile(file) {
-  const validation = validateFile(file, { accept: elements.fileInput.accept });
-  if (!validation.ok) return showError(validation.message);
+function addFiles(chosen) {
+  const accepted = [];
+  for (const file of chosen) {
+    const validation = validateFile(file, { accept: elements.fileInput.accept });
+    if (!validation.ok) return showError(`${file.name}: ${validation.message}`);
+    // 같은 파일을 두 번 넣으면 병합 단계가 E016 을 낸다. 여기서 미리 막는다.
+    if (files.some((item) => item.name === file.name)) continue;
+    accepted.push(file);
+  }
 
-  source = { kind: 'file', file };
-  showSummary(file.name, formatBytes(file.size));
+  usingSample = false;
+  files = [...files, ...accepted];
+  showInputs();
+}
+
+function removeFile(name) {
+  files = files.filter((file) => file.name !== name);
+  if (files.length === 0) return resetWorkspace();
+  showInputs();
 }
 
 function selectSample() {
-  source = { kind: 'sample' };
-  showSummary(SAMPLE_WORKBOOK.fileName, '내장 예시');
+  files = [];
+  usingSample = true;
 
   // 예시는 기본 헤더 구성으로 쓰였다. 사용자가 설정을 바꿔둔 상태라면 예시가
   // 엉뚱하게 깨지므로 되돌려 놓는다. 화면에서 값이 바뀌는 것이 보인다.
@@ -70,28 +94,72 @@ function selectSample() {
     if (field) field.value = value;
   }
 
+  showInputs();
   run();
 }
 
-function showSummary(name, detail) {
-  elements.fileName.textContent = name;
-  elements.fileSize.textContent = detail;
-  elements.fileSummary.hidden = false;
-  elements.dropzone.hidden = true;
-  elements.runButton.disabled = false;
+/** 고른 입력을 목록으로 그린다. 파일 순서는 병합이 파일명으로 정한다 (§3.5). */
+function showInputs() {
+  clear(elements.inputList);
+
+  const items = usingSample
+    ? [{ name: SAMPLE_WORKBOOK.fileName, detail: '내장 예시', removable: false }]
+    : [...files]
+        .sort((left, right) => (left.name < right.name ? -1 : 1))
+        .map((file) => ({ name: file.name, detail: formatBytes(file.size), removable: true }));
+
+  for (const item of items) {
+    const row = document.createElement('li');
+    row.className = 'input-row';
+
+    const badge = document.createElement('span');
+    badge.className = 'file-badge';
+    badge.textContent = item.name.split('.').pop().toUpperCase();
+    row.append(badge);
+
+    const names = document.createElement('div');
+    const name = document.createElement('strong');
+    name.textContent = item.name;
+    const detail = document.createElement('span');
+    detail.textContent = item.detail;
+    names.append(name, detail);
+    row.append(names);
+
+    if (item.removable) {
+      const remove = document.createElement('button');
+      remove.type = 'button';
+      remove.className = 'icon-action';
+      remove.setAttribute('aria-label', `${item.name} 제거`);
+      remove.textContent = '×';
+      remove.addEventListener('click', () => removeFile(item.name));
+      row.append(remove);
+    }
+
+    elements.inputList.append(row);
+  }
+
+  const has = items.length > 0;
+  elements.inputList.hidden = !has;
+  elements.inputSummary.hidden = !has || usingSample;
+  elements.inputCount.textContent = `파일 ${items.length}개 · 병합해서 봅니다`;
+  elements.dropzone.hidden = has && usingSample;
+  elements.runButton.disabled = !has;
   elements.errorPanel.hidden = true;
   hideOutput();
 }
 
 function resetWorkspace() {
-  source = null;
+  files = [];
+  usingSample = false;
   elements.fileInput.value = '';
-  elements.fileSummary.hidden = true;
+  elements.inputList.hidden = true;
+  elements.inputSummary.hidden = true;
   elements.dropzone.hidden = false;
   elements.runButton.disabled = true;
   elements.progressPanel.hidden = true;
   elements.errorPanel.hidden = true;
   elements.progressBar.style.width = '0%';
+  clear(elements.inputList);
   hideOutput();
 }
 
@@ -149,7 +217,7 @@ function updateFormatNotice() {
 // ── 실행 ─────────────────────────────────────────────────────────────
 
 async function run() {
-  if (source === null) return showError('파일을 고르거나 예시로 시작하세요.');
+  if (!usingSample && files.length === 0) return showError('파일을 고르거나 예시로 시작하세요.');
   if (selectedFormats().length === 0) return showError('출력 형식을 하나 이상 고르세요.');
 
   elements.errorPanel.hidden = true;
@@ -160,16 +228,21 @@ async function run() {
   try {
     const settings = readSettings();
 
-    await step(12, '입력을 읽고 있습니다.');
-    const workbook =
-      source.kind === 'sample' ? null : new Uint8Array(await source.file.arrayBuffer());
+    await step(12, `입력을 읽고 있습니다. (${usingSample ? 1 : files.length}개)`);
+    const inputs = usingSample
+      ? []
+      : await Promise.all(
+          files.map(async (file) => ({
+            bytes: new Uint8Array(await file.arrayBuffer()),
+            fileName: file.name,
+          })),
+        );
 
     await step(48, '시트를 해석하고 검증하고 있습니다.');
     // pipeline 은 동기라 여기서 메인 스레드가 멈춘다. 사양 §7.4 의 Worker 는 S10 이다.
-    result =
-      source.kind === 'sample'
-        ? runOnWorkbook(SAMPLE_WORKBOOK, { settings })
-        : runPipeline(workbook, { fileName: source.file.name, settings });
+    result = usingSample
+      ? runOnWorkbook(SAMPLE_WORKBOOK, { settings })
+      : runPipelineAll(inputs, { settings });
     result.described = describeOutputs(result.ir, result.outputs);
 
     await step(100, '완료했습니다.');
@@ -376,9 +449,9 @@ elements.dropzone.addEventListener('keydown', (event) => {
     elements.dropzone.classList.remove('is-dragging');
   }),
 );
-elements.dropzone.addEventListener('drop', (event) => selectFile(event.dataTransfer.files[0]));
-elements.fileInput.addEventListener('change', () => selectFile(elements.fileInput.files[0]));
-elements.fileRemove.addEventListener('click', resetWorkspace);
+elements.dropzone.addEventListener('drop', (event) => addFiles(event.dataTransfer.files));
+elements.fileInput.addEventListener('change', () => addFiles(elements.fileInput.files));
+elements.inputClear.addEventListener('click', resetWorkspace);
 elements.sampleButton.addEventListener('click', selectSample);
 elements.form.addEventListener('reset', () => requestAnimationFrame(resetWorkspace));
 elements.form.addEventListener('submit', (event) => {

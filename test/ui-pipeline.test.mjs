@@ -19,6 +19,7 @@ import {
   normalizeSettings,
   runOnWorkbook,
   runPipeline,
+  runPipelineAll,
 } from '../src/ui/pipeline.js';
 import { SAMPLE_WORKBOOK } from '../src/ui/sample.js';
 import { buildWorkbook } from './fixtures/build.mjs';
@@ -511,4 +512,84 @@ test('예시가 설정을 따른다', () => {
   assert.match(csvUsage, /GameDataCsv\.ReadRows<Monster>/);
   assert.match(loaderUsage, /GameDataTables\.Load\(read\)/);
   assert.match(loaderUsage, /using My\.Game;/);
+});
+
+// ── 여러 파일 (spec.md §3.5) ─────────────────────────────────────────
+
+const input = (name, sheets) => ({ bytes: bytesOf(sheets), fileName: name });
+
+test('여러 파일을 한 워크북처럼 본다', () => {
+  const result = runPipelineAll([
+    input('monsters.xlsx', {
+      Monster: [['id', 'drop'], ['int', 'ref:Item.id'], ['', ''], ['1001', '2001']],
+    }),
+    input('items.xlsx', { Item: [['id'], ['int'], [''], ['2001']] }),
+  ]);
+
+  // 파일을 넘는 ref 가 해결된다.
+  assert.deepEqual(result.diagnostics.filter(isError), []);
+  assert.deepEqual(result.ir.sheets.map((sheet) => sheet.name), ['Item', 'Monster']);
+  assert.deepEqual(result.ir.source.files, ['items.xlsx', 'monsters.xlsx']);
+});
+
+test('파일을 넘는 참조가 깨지면 잡는다', () => {
+  const result = runPipelineAll([
+    input('a.xlsx', {
+      Monster: [['id', 'drop'], ['int', 'ref:Item.id'], ['', ''], ['1001', '9999']],
+    }),
+    input('b.xlsx', { Item: [['id'], ['int'], [''], ['2001']] }),
+  ]);
+
+  assert.deepEqual(
+    result.diagnostics.filter(isError).map((item) => item.code),
+    ['E004'],
+  );
+});
+
+test('넣은 순서가 달라도 같은 출력이다', () => {
+  const files = [
+    input('b.xlsx', { Item: [['id'], ['int'], [''], ['2001']] }),
+    input('a.xlsx', { Monster: [['id'], ['int'], [''], ['1001']] }),
+  ];
+
+  assert.deepEqual(runPipelineAll([...files].reverse()).outputs, runPipelineAll(files).outputs);
+});
+
+test('시트명이 겹치면 E016 이다', () => {
+  const result = runPipelineAll([
+    input('a.xlsx', { Common: [['id'], ['int'], [''], ['1']] }),
+    input('b.xlsx', { Common: [['id'], ['int'], [''], ['2']] }),
+  ]);
+
+  assert.ok(result.diagnostics.some((item) => item.code === 'E016'));
+  assert.equal(result.blocked, true);
+});
+
+test('집계 로더가 모든 파일의 테이블을 담는다', () => {
+  const result = runPipelineAll(
+    [
+      input('a.xlsx', { Monster: [['id'], ['int'], [''], ['1001']] }),
+      input('b.xlsx', { Item: [['id'], ['int'], [''], ['2001']] }),
+    ],
+    { settings: { loader: true } },
+  );
+  const loader = result.outputs.csharp.find((file) => file.fileName === 'GameDataTables.cs').text;
+
+  assert.match(loader, /MonsterTable/);
+  assert.match(loader, /ItemTable/);
+});
+
+test('파일 하나만 넣어도 된다', () => {
+  const result = runPipelineAll([input('a.xlsx', { Monster: [['id'], ['int'], [''], ['1']] })]);
+
+  assert.deepEqual(result.ir.source.files, ['a.xlsx']);
+  assert.equal(result.blocked, false);
+});
+
+test('runPipeline 은 파일 하나짜리 지름길이다', () => {
+  const bytes = fixtureBytes('basic');
+  const single = runPipeline(bytes, { fileName: 'basic.xlsx' });
+  const viaAll = runPipelineAll([{ bytes, fileName: 'basic.xlsx' }]);
+
+  assert.deepEqual(viaAll.outputs, single.outputs);
 });

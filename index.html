@@ -90,15 +90,15 @@
           <div id="dropzone" class="br-dropzone" tabindex="0" role="button" aria-controls="file-input">
             <span class="br-dropzone__icon" aria-hidden="true">＋</span>
             <strong>파일을 여기에 놓으세요</strong>
-            <p>또는 클릭해서 파일 선택</p>
+            <p>또는 클릭해서 선택 · 여러 개를 한 번에 놓아도 됩니다</p>
             <span class="file-constraints">XLSX / XLSM / CSV · 최대 25MB</span>
           </div>
-          <input id="file-input" type="file" accept=".xlsx,.xlsm,.csv" hidden>
+          <input id="file-input" type="file" accept=".xlsx,.xlsm,.csv" multiple hidden>
 
-          <div id="file-summary" class="file-summary" hidden>
-            <span class="file-badge" aria-hidden="true">FILE</span>
-            <div><strong id="file-name"></strong><span id="file-size"></span></div>
-            <button id="file-remove" class="icon-action" type="button" aria-label="선택한 파일 제거">×</button>
+          <ul id="input-list" class="input-list" hidden></ul>
+          <div id="input-summary" class="input-summary" hidden>
+            <span id="input-count"></span>
+            <button id="input-clear" class="br-button" type="button">모두 지우기</button>
           </div>
 
           <div class="sample-row">

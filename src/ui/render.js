@@ -73,6 +73,8 @@ function element(tag, className, text) {
 export function renderSheetList(container, { ir, diagnostics, selected, onToggle }) {
   clear(container);
   const counts = countDiagnostics(diagnostics);
+  // 파일이 하나뿐이면 파일명을 반복해 보여줄 이유가 없다.
+  const showSource = (ir.source?.files?.length ?? 0) > 1;
 
   for (const sheet of ir.sheets) {
     const row = element('li', 'sheet-row');
@@ -86,10 +88,14 @@ export function renderSheetList(container, { ir, diagnostics, selected, onToggle
 
     const names = element('span', 'sheet-names');
     names.append(element('strong', null, sheet.name));
+
     // 변환된 이름이 다르면 함께 보여준다. 생성 코드에서 찾을 이름이 그쪽이다.
-    if (sheet.className !== sheet.name) {
-      names.append(element('span', 'sheet-alias', `→ ${sheet.className}`));
-    }
+    // 파일이 여럿이면 어느 파일에서 왔는지도 봐야 시트를 찾아갈 수 있다 (§3.5).
+    const alias = [
+      sheet.className === sheet.name ? null : `→ ${sheet.className}`,
+      showSource ? sheet.sourceFile : null,
+    ].filter(Boolean);
+    if (alias.length > 0) names.append(element('span', 'sheet-alias', alias.join(' · ')));
     label.append(names);
     row.append(label);
 
