@@ -5,7 +5,7 @@
 // 파싱·검증·출력은 pipeline.js 가, DOM 생성은 render.js 가 한다. 이 파일은 이벤트를
 // 받아 둘을 잇고 패널을 여닫는 일만 한다.
 import { formatBytes, validateFile } from './file-intake.js';
-import { describeOutputs, runOnWorkbook, runPipeline } from './pipeline.js';
+import { checkOutputSettings, describeOutputs, runOnWorkbook, runPipeline } from './pipeline.js';
 import {
   clear,
   renderFileList,
@@ -29,6 +29,7 @@ const elements = {
   errorPanel: $('#error-panel'), errorMessage: $('#error-message'), errorClose: $('#error-close'),
   outputPanel: $('#output-panel'), sheetList: $('#sheet-list'), sheetsSummary: $('#sheets-summary'),
   reportList: $('#report-list'), reportSummary: $('#report-summary'),
+  formatNotice: $('#format-notice'),
   formatTabs: $('#format-tabs'), fileList: $('#file-list'), previewCode: $('#preview-code'),
   exportNote: $('#export-note'), downloadFile: $('#download-file'), downloadAll: $('#download-all'),
   toast: $('#toast'),
@@ -122,6 +123,24 @@ function readSettings() {
 function selectedFormats() {
   const checked = new Set(new FormData(elements.form).getAll('format'));
   return ['json', 'csharp', 'csv'].filter((format) => checked.has(format));
+}
+
+/**
+ * 어긋난 설정 조합을 체크박스 바로 아래에 알린다.
+ *
+ * 실행 전에 보여야 한다 — 내보내고 나서 "읽을 JSON 이 없다" 를 알게 되면 늦다.
+ */
+function updateFormatNotice() {
+  const issues = checkOutputSettings(selectedFormats(), { loader: readSettings().loader });
+
+  clear(elements.formatNotice);
+  elements.formatNotice.hidden = issues.length === 0;
+
+  for (const issue of issues) {
+    const item = document.createElement('li');
+    item.textContent = issue;
+    elements.formatNotice.append(item);
+  }
 }
 
 // ── 실행 ─────────────────────────────────────────────────────────────
@@ -329,6 +348,7 @@ function showToast(message) {
 // ── 이벤트 ───────────────────────────────────────────────────────────
 
 renderGuideTable(elements.guideTable, guideRows());
+updateFormatNotice();
 
 elements.dropzone.addEventListener('click', () => elements.fileInput.click());
 elements.dropzone.addEventListener('keydown', (event) => {
@@ -360,6 +380,8 @@ elements.form.addEventListener('submit', (event) => {
 });
 // 설정을 바꾸면 화면의 결과가 그 설정으로 나온 것이 아니게 된다.
 elements.form.addEventListener('change', (event) => {
+  updateFormatNotice();
+
   if (result === null) return;
   if (event.target.name === 'format') {
     activeFormat = selectedFormats()[0] ?? 'json';

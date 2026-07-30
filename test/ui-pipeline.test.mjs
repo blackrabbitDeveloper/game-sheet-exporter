@@ -14,6 +14,7 @@ import * as XLSX from '../vendor/sheetjs/xlsx.mjs';
 import { isError } from '../src/core/ir/diagnostic.js';
 import {
   DEFAULT_SETTINGS,
+  checkOutputSettings,
   describeOutputs,
   normalizeSettings,
   runOnWorkbook,
@@ -392,4 +393,48 @@ test('런타임 파일도 설명이 붙는다', () => {
 
   assert.match(runtime.description, /런타임/);
   assert.ok(runtime.bytes > 0);
+});
+
+// ── 설정 조합 검사 (spec.md §6.2) ────────────────────────────────────
+
+test('C# 만 켜면 JSON 이 없다고 알린다', () => {
+  // 생성된 C# 은 JSON 을 읽는다. JSON 이 없으면 Load 가 읽을 파일이 없다.
+  const issues = checkOutputSettings(['csharp']);
+
+  assert.equal(issues.length, 1);
+  assert.match(issues[0], /JSON/);
+});
+
+test('CSV 와 C# 을 켜도 JSON 이 없으면 알린다', () => {
+  // CSV 는 차이 확인용이고 런타임이 읽는 형식이 아니다 (사양 §6.2).
+  assert.equal(checkOutputSettings(['csharp', 'csv']).length, 1);
+});
+
+test('JSON 을 함께 켜면 조용하다', () => {
+  assert.deepEqual(checkOutputSettings(['json', 'csharp']), []);
+  assert.deepEqual(checkOutputSettings(['json', 'csharp', 'csv']), []);
+});
+
+test('C# 없이 JSON 이나 CSV 만 켜면 조용하다', () => {
+  assert.deepEqual(checkOutputSettings(['json']), []);
+  assert.deepEqual(checkOutputSettings(['csv']), []);
+  assert.deepEqual(checkOutputSettings(['json', 'csv']), []);
+});
+
+test('C# 을 끈 채 집계 로더를 켜면 아무 것도 안 나온다고 알린다', () => {
+  const issues = checkOutputSettings(['json'], { loader: true });
+
+  assert.equal(issues.length, 1);
+  assert.match(issues[0], /로더/);
+});
+
+test('C# 을 켰으면 집계 로더 설정은 문제가 아니다', () => {
+  assert.deepEqual(checkOutputSettings(['json', 'csharp'], { loader: true }), []);
+});
+
+test('알림은 막지 않는다', () => {
+  // 이미 JSON 이 프로젝트에 있고 C# 만 다시 보려는 경우가 있다. 내보내기를 막는
+  // 판단은 진단의 E 만 한다 (사양 §5.1).
+  const result = runOnWorkbook(SAMPLE_WORKBOOK);
+  assert.equal(result.blocked, false);
 });

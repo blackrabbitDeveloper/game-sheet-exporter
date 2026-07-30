@@ -124,6 +124,36 @@ function run(workbook, resolved) {
 }
 
 /**
+ * 출력 형식 조합이 어긋나는 곳을 찾는다.
+ *
+ * 진단이 아니라 문자열 목록이다 — 시트의 문제가 아니라 설정의 문제이고, 붙일 셀
+ * 좌표가 없다. 내보내기를 막지도 않는다: 이미 JSON 이 프로젝트에 있고 C# 만 다시
+ * 보려는 경우가 있다. 막는 판단은 진단의 E 만 한다 (사양 §5.1).
+ *
+ * @param {Array<string>} formats 체크된 출력 형식
+ * @param {{loader?: boolean}} [settings]
+ * @returns {Array<string>} 사람이 읽는 알림. 없으면 빈 배열
+ */
+export function checkOutputSettings(formats, settings = {}) {
+  const issues = [];
+  const has = (format) => formats.includes(format);
+
+  // 생성된 C# 은 JSON 을 읽는다. CSV 는 차이 확인과 다른 도구 연동용이고 런타임이
+  // 읽는 형식이 아니다 (사양 §6.2).
+  if (has('csharp') && !has('json')) {
+    issues.push(
+      'C# 은 JSON 을 읽습니다. JSON 을 함께 내보내지 않으면 Load 가 읽을 파일이 없습니다.',
+    );
+  }
+
+  if (settings.loader === true && !has('csharp')) {
+    issues.push('집계 로더는 C# 출력입니다. C# 을 켜지 않으면 나오지 않습니다.');
+  }
+
+  return issues;
+}
+
+/**
  * 출력 파일마다 "이게 무엇인가" 와 크기를 붙인다.
  *
  * 파일명만 보여주면 Grade.cs 가 enum 인지 클래스인지, GameDataTables.cs 가 무엇인지
