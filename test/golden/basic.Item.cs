@@ -4,12 +4,15 @@ namespace GameData
 {
     /// <summary>Item 시트의 한 행입니다.</summary>
     [Serializable]
-    public sealed class Item
+    public sealed class Item : IGameData<int>
     {
         /// <summary>고유ID</summary>
         public int id;
 
         /// <summary>이름 (로컬라이즈 키)</summary>
         public string name;
+
+        /// <summary>기본키입니다 (id).</summary>
+        int IGameData<int>.Key => id;
     }
 }
